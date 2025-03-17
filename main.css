@@ -1,0 +1,73 @@
+@font-face {
+  font-family: 'Shadows Into Light';
+  src: url("fonts/ShadowsIntoLight-Regular.woff2") format('woff2');
+}
+
+@font-face {
+  font-family: 'Outfit';
+  src: url("fonts/Outfit-VariableFont_wght.woff2") format('woff2');
+}
+
+html, body {
+  background-color: #e7dfca;
+  height: 100%;
+  margin: 0;
+}
+
+a {
+  color: #000000;
+}
+
+div.header {
+  font-family: 'Shadows Into Light';
+  font-size: 2em;
+  padding: 0.5em;
+  background-color: rgba(255, 255, 255, 0.5);
+  display: flex;
+  justify-content: space-between;
+
+  box-shadow: 0 0 -40px 0 rgba(255, 255, 255, 0.5);=
+}
+
+div.header a {
+  text-decoration: none;
+}
+
+div.nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 1em;
+  padding-right: 1em;
+  float: right;
+}
+
+div.content {
+  max-width: 33%;
+  margin: 0 auto;
+}
+
+h1 {
+  font-family: 'Shadows Into Light';
+  font-size: 4em;
+}
+
+p {
+  font-family: 'Outfit';
+  font-size: 1.5em;
+}
+
+a.article-title {
+  font-family: 'Shadows Into Light';
+  font-size: 4em;
+  text-decoration: none;
+}
+
+div.description {
+  font-family: 'Outfit';
+  font-size: 1.5em;
+}
+
+div.detail {
+  font-family: 'Shadows Into Light';
+  font-size: .9em;
+}

@@ -1,0 +1,28 @@
+<rss version="2.0">
+ <channel>
+  <title>Jackson Huff's Blog</title>
+  <link>https://jghuff.com/blog</link>
+  <description>Jackson Huff's various blog articles.</description>
+  <generator>Made By Hand</generator>
+  <item>
+  <title>Making "Almost DPI" with Mikrotik firewall rules</title>
+  <link>https://jghuff.com/blog/dpi</link>
+  <description>In this article, I create a DPI-like experience by using many firewall rules to redirect traffic.</description>
+  </item>
+  <item>
+  <title>Making the Ultimate Hotspot</title>
+  <link>https://jghuff.com/blog/hotspot</link>
+  <description>Here's how to make the ultimate mobile hotspot from a Mikrotik wAP ac LTE6.</description>
+  </item>
+  <item>
+  <title>"Hacking" an LTE Modem</title>
+  <link>https://jghuff.com/blog/modem</link>
+  <description>In this article, I "hack" into a Mikrotik LTE modem and change the IMEI.</description>
+  </item>
+  <item>
+  <title>SFP+ Disassembly</title>
+  <link>https://jghuff.com/blog/sfpplus</link>
+  <description>In this article, I take apart an 8P8C SFP+ ethernet module.</description>
+  </item>
+ </channel>
+</rss>

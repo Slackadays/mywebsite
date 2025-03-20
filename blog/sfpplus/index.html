@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>SFP+ Disassembly | Jackson Huff's Blog</title>
+<meta charset="UTF-8">
+<meta http-equiv=”content-language” content=”en-us”>
+<meta name="description" content="Discover what's indide an ethernet SFP+ module in this blogpost of mine.">
+<meta name="author" content="Jackson Huff">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="keywords" content="SFP+, ethernet, fiber, networking, blog, computers, technology, fun, interesting, novel, new">
+<link rel="shortcut icon" href="/legacy-favicon.png">
+<link rel="stylesheet" type="text/css" href="/legacy-main.css">
+<link rel="preconnect" href="https://fonts.gstatic.com">
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Lato&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="site">
+<div class="navbar">
+        <div class="navbutton"><a href="/">Home</a></div>
+        <div class="navbutton"><a href="/blog">Blog</a></div>
+</div>
+<div class="banner">Jackson Huff's Blog</div>
+<div class="title">SFP+ Module Disassembly: 12 Easy Steps</div>
+<div class="text">Ever since I bought my first 10-gigabit ethernet device, a MikroTik CRS305 switch, I've always wondered what lurks in the RJ45/8P8C SFP+ modules you plug into this 
+kind of switch.
+Unlike earlier ethernet standards, 10GBase-T is faster, more complicated, and trickier to keep under wraps compared to earlier ones where NICs could be had for pennies on the dollar 
+for years prior. However, many of these challenges are eliminated with the use of optic fiber-based modules which comparatively sip power and use a more flexible standard. 
+This led me to believe that it was going to be like a party inside of my RJ45/8P8C modules. As you'll see shortly, this is plain untrue. 
+
+<div class="title">Step 1: Look at your module.</div> 
+<img src="IMG_20210424_210623550.jpg" alt="Top view of SFP+ module"><div class="caption">The test subject</div>
+This is the SFP+ module we're going to be taking apart. Can you notice any ways in which we can open it?
+
+<div class="title">Step 2: Look for free real estate.</div>
+<img src="IMG_20210424_210729386.jpg" alt="Bottom view of SFP+ module"><div class="caption">There are a few opportunities here</div>
+Here's the bottom view of our module. Answering the above question, I can see a couple metal hook-type clips and some retainer clip.
+
+<div class="title">Step 3: Remove the springy retainer clip.</div>
+<img src="IMG_20210424_210913296.jpg" alt="Putting a screwdriver under part of the module's reatainer clip"><div class="caption">Jab your screwdriver underneath.</div>
+Let's start by getting a precision screwdriver. It should fit under the semicircle-looking area in the retainer clip near the front of the SFP+ module.
+
+<div class="title">Step 4: Slide the screwdriver over.</div>
+<img src="IMG_20210424_210837352.jpg" alt="Putting a screwdriver under the other part of the clip"><div class="caption">Use care and precision!</div>
+Now that we've got the tip of the screwdriver underneath the clip, carefully slide it over to the lefthand side of the area under the retaining clip. If it gets pushed out, repeat Step 3.
+
+<div class="title">Step 5: Repeat this for the other side.</div>
+<img src="IMG_20210424_211100769.jpg" alt="Both sides are ready to be removed"><div class="caption">The clip is ready to be removed</div>
+Repeat Step 3 and Step 4 for the other side of the clip.
+
+<div class="title">Step 6: Start prying the clip.</div>
+<img src="IMG_20210424_211221737.jpg" alt="Removing the retainer clip"><div class="caption">Removing the clip</div>
+Pry at the clip to get it to lose grip of the module. Don't worry, as it seems to be made of a springy metal.
+
+<div class="title">Step 7: Keep prying.</div>
+<img src="IMG_20210424_211129584.jpg" alt="Removing the retainer clip"><div class="caption">Retainer clip being removed</div>
+Keep prying until it slides down the side of the module.
+
+<div class="title">Step 8: Remove the clip.</div>
+<img src="IMG_20210424_211259864.jpg" alt="Removed the retainer clip"><div class="caption">Removed</div>
+Try to remove the retainer clip. It could be tricky. However, never give up!
+
+<div class="title">Step 9: Look for more free real estate.</div>
+<img src="IMG_20210424_211408168.jpg" alt="Closeup of the bottom"><div class="caption">Closeup of the bottom</div>
+We're almost at the endgame. Can you see those two little clips next to the circuitboard? Pry those up using the appropriate size of precision screwdriver.
+Then, grntly push on them with the tip of your screwdriver to make the next step easier.
+
+<div class="title">Step 10: Pry off the top.</div>
+<img src="IMG_20210424_211550155.jpg" alt="Prying off the top cover"><div class="caption">Pry off the top part</div>
+Use your tiniest screwdriver and lodge its tip in the seam where the top cover and the main body of the module meet. Now pry it up and remove the cover.
+
+<div class="title">Step 11: We're in.</div>
+<img src="IMG_20210424_211641570.jpg" alt="Inside view of the module"><div class="caption">Inside view</div>
+We can new see the inside of the module. There's not much here, but that shiny chip in the middle looks interesting. You can't see this on camera, but the chip is covered in a light
+ coat of mineral oil. This mineral oil helps transfer heat to the thermal pads on the top cover.
+
+<div class="title">Step 12: Check out the chip.</div>
+<img src="IMG_20210424_212148920.jpg" alt="Closeup of the ethernet chip"><div class="caption">The ethernet chip inside</div>
+This is interesting. Most/all of the processing in the module is done by this NIC chip. The transformer (the big black chip) only serves as a way to amplify the signals produced by the NIC.
+Surprisingly, this isn't as much of a party as I thought it was going to be. Ironically, LTE modems, which arguably have an easier job at communicating, have entire Linux systems inside of them 
+with all the parts needed to be a complete computer.
+<br><br>
+That's it! 12 steps sounds like a lot, but each step was trivial to do by itself. Never let such a title ("...12 Easy Steps") discourage you from trying something.
+</div>
+</div>
+</body>
+</html>

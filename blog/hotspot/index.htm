@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Converting an LTE access point into the ultimate hotspot | Jackson Huff's Blog</title>
+<meta charset="UTF-8">
+<meta http-equiv=”content-language” content=”en-us”>
+<meta name="description" content="In this article, I show how to configure a Mikrotik wAP ac LTE6 into a beast of a mobile hotspot.">
+<meta name="author" content="Jackson Huff">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="keywords" content="mikrotik, r11e, r11e-lte6, lte, lte6, modem, huff, 4g, hotspot, mobile, wifi, connectivity, laptop, fast, 5G, networking, blog, computers, technology, fun, interesting, novel, new">
+<link rel="shortcut icon" href="/legacy-favicon.png">
+<link rel="stylesheet" type="text/css" href="/legacy-main.css">
+<link rel="preconnect" href="https://fonts.gstatic.com">
+<style>
+/* latin-ext */
+@font-face {
+  font-family: 'Lato';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/lato/v17/S6uyw4BMUTPHjxAwXjeu.woff2) format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Lato';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/lato/v17/S6uyw4BMUTPHjx4wXg.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Source Code Pro';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/sourcecodepro/v14/HI_XiYsKILxRpg3hIP6sJ7fM7PqtlsnDvecq_mk.woff2) format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Source Code Pro';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/sourcecodepro/v14/HI_XiYsKILxRpg3hIP6sJ7fM7PqtlsnDs-cq.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin */
+@font-face {
+  font-family: 'Special Elite';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/specialelite/v11/XLYgIZbkc4JPUL5CVArUVL0ntnAOSA.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+</style>
+</head>
+<body>
+<div class="site">
+<div class="navbar">
+        <div class="navbutton"><a href="/">Home</a></div>
+        <div class="navbutton"><a href="/blog">Blog</a></div>
+</div>
+<div class="banner">Jackson Huff's Blog</div>
+<h4><div class="title">Converting an LTE access point into the ultimate hotspot</div></h4>
+<div class="text">
+Often, I find myself without the Internet available for my devices. Usually, it is my laptop or even my phone when it's out of reach of its cellular network. It could even be 
+if the device needs an ethernet connection and nothing else. Fortunately 
+for me, and now for you, there's a solution that isn't a total piece of junk, and that's to make a hotspot out a cellular router device. You might be asking, "Why not use our phones instead?" There are a few reasons why:
+<div class="title">Why You Shouldn't Use Your Phone As A Hotspot</div>
+Reason 1: Phones are (usually) slow.<br><br>
+Phones, specifically smartphones, often have cellular modems in them that can't stack up when under load. Or, their modems are speedy and well-designed, but the phone lacks a good WiFi radio 
+to make use of that modem. Or, instead, you can use an ethernet adapter with the phone that has a good modem. The problem with this is, if you need to use a device that only accepts WiFi, then you're out 
+of luck unless you use an access point to convert the ethernet into wireless signals. The problem here is that now this setup's gotten clunkier than The Hulk himself. <br><br>
+Reason 2: "Smart" phones lack features.<br><br>
+Smartphones usually have grandma-grade facilities for creating a hotspot. This means you can't change any WiFi settings other than the SSID, nor can you specify what settngs the modem will use in hotspot mode. Android used to be better with this, but today, your Android phone needs to be rooted to even come closer to a dedicated hotspot.
+<br><br>
+Reason 3: Phone hotspots are detected by carriers.<br><br>
+Unless you use a special app that can add special features like TTL modification, your carrier may forbid hotspots on your cellular plan. Actual hotspot devices include features to bypass this limitation, including but not 
+limited to, TTL modification, forced APN settings, IMEI changes, and VPN split-tunnels.<br><br>
+<div class="title">What's The Fix?</div>
+Using a real, dedicated hotspot device eliminates these problems described above. There are many options on the market today. For example, Netgear has one such device called the Nighthawk M1. Peplink offers other, similar devices as well. However, 
+for this blog post and for me personally, I'm going to use something unexpected. The device in question is not actually a hotspot, but rather a whole router device designed to be permantly 
+installed outside and used in rural locations. I'm talking about the Mikrotik wAP ac LTE6, which you've likely never heard of. This funnily-named device is simply a normal Mikrotik 802.11ac WiFi access point 
+with an LTE modem installed of category 6. This means it can take advantage of features such as carrier aggregation, but lacks speed compared to other modem options today. Nevertheless, this is still a good enough option for a hotspot. 
+<div class="title">Why?</div>
+Here's why I chose the wAP ac LTE6 for my hotspot. It offers these features: comprehensive firewall rules (Linux iptables), VPN tunnels, customizable wireless settings, neat form factor, modem with changeable IMEI, 
+customizable routing, two ethernet ports, 2.4/5GHz simultaneous wireless, beefy cellular antennas, rainproof case, and swappable miniPCIe modem. I'll be going over all of these features in this blog post, except for a BIG one, and that's Deep Packet Inspection. DPI takes advantage of  
+algorithms to "intelligently" redirect traffic that would otherwise give away 
+the wAP being a hotspot on the cellular network. However, as no Mikrotik device actually supports DPI, I have to emulate it by crafting special firewall rules that have a very 
+similar effect.
+<div class="title">The "Good Stuff"</div>
+This is the section you've been waiting for. I'm going to go over most of the settings on my personal hotspot of this model so that you can get as good of an experience as I'm getting, except for the 
+DPI firewall rules because those deserve its own blog post. 
+<div class="title">Getting Familiar With The wAP ac LTE6</div>
+Upon first glance, this access point/hotspot looks unassuming. 
+<picture>
+<source type="image/webp" srcset="Front.webp" alt="The front view of the wAP ac LTE6">
+<source type="image/jpeg" srcset="Front.jpg" alt="The front view of the wAP ac LTE6">
+<img src="Front.jpg" alt="The front view of the wAP ac LTE6">
+</picture>
+On the righthand side of the front, you can see the words "MikroTik routerboard" which tell you exactly what it is. On the bottom, 
+you can see a series of four plastic knockouts for cables to travel through when the voer is closed. 
+<picture>
+<source type="image/webp" srcset="Bottom.webp">
+<source type="image/jpeg" srcset="Bottom.jpg">
+<img src="Bottom.jpg" alt="Bottom view of the wAP ac LTE6">
+</picture>
+Additionally, there is a stainless steel setscrew holding the plastic bottom cover panel on. Remove this screw by using a Phillips screwdriver and unscrewing it until the screw comes out. Store this screw with the included hardware baggie where you can find another similar screw with a different head. This other screw 
+prevents vandals from opening the device up and stealing it. However, as this is now a mobile hotspot, it would be pointless to use this special screw. <br><br>
+Remove the bottom cover by sliding it down gently. 
+<picture>
+<source type="image/webp" srcset="Ports.webp">
+<source type="image/jpeg" srcset="Ports.jpg">
+<img src="Ports.jpg" alt="Photo showing the assortment of ports on the wAP ac LTE6">
+</picture>
+Flanking the sides of the exposed area are the two circuitboard trace-based LTE antennas which are very delicate. In the middle of the exposed area there are two ethernet ports, a barrel plug jack, a SIM card slot, and three indicator LEDs. 
+In my hotspot, I use leftmost ethernet port for WAN connections such as in a hotel. The rightmost port is for LAN devices such as any gadget that can accept ethernet. The barrel plug jack
+ will be used to power this hotspot when it goes "into production." The SIM card slot will be used for the micro-SIM provided by the cellular provider. Before we continue, let's talk about the many cellular plan options available for this kind of hotspot. 
+<div class="title">Cellular Plans</div>
+When it comes to hotspots, there any many options available. Often, you are limited by IMEI lookups for plans that are intended for only phones. This can be bypassed if you read <a href="/blog/modem">this article</a> from my blog. 
+The cellular industry is always changing, so I can't give you much more info on its plans here. However, I think <a href="https://www.bestphoneplans.net/">this site</a> provides a good starting place for a search. 
+<div class="title">The Software Side</div>
+Almost all Mikrotik devices run software called RouterOS. RouterOS is nothing more than a highly optimized Linux distro with a fancy interface. It has all the features mentioned in this article and also in the upcoming DPI one. 
+To get started with configuring the wAP, simply plug it in with the included power supply and wait for it to boot up. Now, connect to its WiFi network with some device such as a laptop. It will have no password and have "MikroTik" in its name. 
+Open up a web browser and go to 192.168.88.1 and you're ready. The first thing you'll notice is the wickedly-intimidating interface called WebFig. We'll be adding <i>most</i> of our customizations here. 
+For now, just look around and see what you can find. Many of the sidebar menus have sub-menus. <br><br>
+
+Once you've gotten more comfortable, start by changing the "identity" of the hotspot by going to this menu: System->Identity. There, replace "MikroTik" with any descriptive name you'd like. Now, let's improve our WiFi's security a little. Go to Wireless and look at the top 
+"tabs" and click "Security Profiles." Click "default" to change its settings. Where it says "none," select "dynamic keys." Then check the box for "WPA2 Personal" and enter a password in the box that has become availabe below. This is our WiFi password which should be something secure. 
+Let's change our WiFi name by going back to "Interfaces" in the top tab area. Click "wlan1" and change the SSID to anything you'd like. Then, do the same for "wlan2." 
+
+Let's change how the ethernet ports are allocated. Go to Bridge->Ports and find "ether1" in the list. Click the gray button with a dash (-) symbol on the very left of its row to remove 
+ether1 from the list of bridge ports. Now, go to Interfaces->Interface List and click "Add New." 
+<picture>
+<source type="image/webp" srcset="InterfaceLists.webp" alt="Screenshot of the Interface Lists menu in RouterOS.">
+<source type="image/png" srcset="InterfaceLists.png" alt="Screenshot of the Interface Lists menu in RouterOS.">
+<img src="InterfaceLists.png" alt="Screenshot of the Interface Lists menu in RouterOS.">
+</picture>
+Select the list "WAN" and the interface "ether1" and click "OK." 
+This tells the router that ether1 
+will be our WAN ethernet port. Now, go to IP->DHCP Client and click "Add New." Select the interface ether1 and click "OK." Let's confugre the LTE modem. On the top tabs of Interfaces, click "LTE" on the very right. You will see the modem listed, and click the "LTE APNs" button. Now click "Add 
+New" to add a new APN, obviously. The information for this will be provided by your cellular provider and is different for every plan, so I can't give you the info here. 
+<br><br>
+Let's now do something actually interesting. Go to IP->Firewall->Mangle and click "Add New." There are countless options available, so I'll give them to you quickly. Change "Chain" 
+to postrouting. Change "Out. Interface List" to WAN. Change "Action" to change TTL. Set "TTL Action" to change. Change "New TTL" to 65. Check the "Passthrough" box. What 
+does this rule do? It masquerades the TTL value for all outgoing packets to one used by Android and iOS devices. This is the most-used method by carriers to detect hotspots and now that we've eliminated 
+this attack vector, we're a lot more safer now. 
+<br><br>
+We have a lot more tedious, detailed rules to add, so it's time for something totally new. In the top right, click "Terminal" where there are buttons for "Quick Set" and "WebFig." 
+Now, you can enter commands into the command line interface to get things done a lot quicker. This will be useful for upcoming firewall rules. Actually, it can get even easier than this. If 
+you have a terminal program on your computer, you can connect directly with SSH or telnet. There, you can copy and paste commands from this website to be even quicker. 
+You can't do this in the web browser terminal. 
+<br><br>
+Let's add a couple more rules. This one increases the TTL on incoming traffic from ether1. Many hotels limit the TTL of such traffic to 1 in 
+order to prevent hotspots from being used. However, as we're smarter than them, we can just bump it back up to where it should be and this problem is gone. 
+<div class="code">/ip firewall mangle<br>add action=change-ttl chain=prerouting comment="bump ttl up on traffic from ether1" in-interface-list=WAN new-ttl=set:65 passthrough=yes 
+ttl=less-than:3</div>
+One more rule for this section of the firewall. This rule actually improves performance by limiting the TCP MSS so that packet fragmentation ocurrs less. If that sounds 
+like gibberish to you, don't worry. 
+<div class="code">add action=change-mss chain=forward comment="improve tcp performance and homogenize mss" new-mss=clamp-to-pmtu out-interface-list=WAN passthrough=yes protocol=tcp 
+tcp-flags=syn</div>
+<div class="title">Getting More Complicated</div>
+Let's change some more advanced settings. Go back to Wireless and click wither wlan1 or wlan2. Now, click "Advanced Mode" on the top to access all settings available.
+Change "Adaptive Noise Immunity" to "ap and client mode." Change "Antenna Gain" to 0. Change "Frequency" to any suitable channel so that the hotspot won't automatically
+ pick it for you. Change "WPS Mode" to "disabled." Make sure "Wireless Protocol" is 802.11. Change "WMM Support" to enabled. If you selected 
+wlan1, change "Band" to "2GHz-only-N." If you selected wlan2, change "Band" to "5GHz-only-AC."
+<br><br>
+Now open the terminal and enter the following command. This enables "Hotspot 2.0," an addition to the WiFi specification that adds extra features that connecting clients tend to like.
+<div class="code">
+/interface wireless interworking-profiles<br>
+add ipv4-availability=double-nated ipv6-availability=available name=profile1 \<br>
+    network-type=private operational-classes=your-wifi-bands-here venue-names=\<br>
+    MyHotspot:eng,MiZonaWifi:es<br>
+</div> 
+Important! Remember to change "your-wifi-bands-here" to the bands that you're using for wlan1 and wlan2. For example, in my hotspot, it looks like "5220,2462." After you enter the command, enter this command: 
+<div class="code">/interface wireless set [find] interworking-profile="profile1"</div>
+<br><br>
+Go to IP->DNS. 
+<picture>
+<source type="image/webp" srcset="DNS.webp" alt="Screenshot of the DNS menu in RouterOS.">
+<source type="image/png" srcset="DNS.png" alt="Screenshot of the DNS menu in RouterOS.">
+<img src="DNS.png" alt="Screenshot of the DNS menu in RouterOS.">
+</picture>
+Enter any server you'd like in the Servers section. I use 1.1.1.1 and 8.8.8.8. Now, enter "https://cloudflare-dns.com/dns-query" in "Use DoH Server" and check "Verify DoH Certificate."
+Also make sure "Allow Remote Requests" is checked. Click the Apply button. Now, go to <a href="https://cloudflare-dns.com">https://cloudflare-dns.com</a> in your web browser and export the certificate. If 
+you use Chrome, click the lock icon and then click "Certificate (Valid)." Now click the "Details" tab and click the top row in "Certificate Hierarchy." Then clcik the "Export..." button and save the certificate. Log back into the hotspot. Go to Files->Upload File and upload the certificate file. Then go to System->Certificates and click the Import button and select the file
+you uploaded. Now it should be available to use as a certificate for verification.
+<br><br>
+Go to the terminal and enter this code to keep track of interface activity:
+<div class="code">/tool graphing interface<br>
+add interface=lte1 store-on-disk=no<br>
+add interface=ether1<br>
+add interface=bridge<br>
+add interface=ether2 store-on-disk=no<br>
+add interface=wlan1 store-on-disk=no<br>
+add interface=wlan2 store-on-disk=no<br>
+</div>
+Access these graphs by clicking the "Graphs" button in the menus.
+<br><br>
+Let's improve the security of our hotspot. Go to System->Users and select "admin." There, change the password to something you'll remember and is secure enough. 
+<br><br>
+Let's try a neat party trick. Go to Tools->SMS and click "Send SMS." There, enter the lte1 interface and your phone number and some message. If your cellular plan is working, then you'll get an 
+SMS message from yout hotspot. Neato!
+<div class="title">What More Is There?</div>
+There's a lot more I haven't covered, and that has to do with DPI firewall rules. Stay tuned for that article, and for now, you'll still get a good hotspot experience.
+</div>
+</div>
+</body>
+</html>

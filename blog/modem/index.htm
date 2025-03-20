@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>How I "Hacked" an LTE Modem Without Physical or Network Access | Jackson Huff's Blog</title>
+<meta charset="UTF-8">
+<meta http-equiv=”content-language” content=”en-us”>
+<meta name="description" content="In this article, I show how to change the IMEI on a Mikrotik LTE6 modem using AT commands.">
+<meta name="author" content="Jackson Huff">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="keywords" content="mikrotik, r11e, r11e-lte6, lte, lte6, modem, huff, 4g, imei, wap, sxt, change, modify, magic, production, mode, firmware, networking, blog, computers, technology, fun, interesting, novel, new">
+<link rel="shortcut icon" href="/legacy-favicon.png">
+<link rel="stylesheet" type="text/css" href="/legacy-main.css">
+<link rel="preconnect" href="https://fonts.gstatic.com">
+<style>
+/* latin-ext */
+@font-face {
+  font-family: 'Lato';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/lato/v17/S6uyw4BMUTPHjxAwXjeu.woff2) format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Lato';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/lato/v17/S6uyw4BMUTPHjx4wXg.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Source Code Pro';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/sourcecodepro/v14/HI_XiYsKILxRpg3hIP6sJ7fM7PqtlsnDvecq_mk.woff2) format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Source Code Pro';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/sourcecodepro/v14/HI_XiYsKILxRpg3hIP6sJ7fM7PqtlsnDs-cq.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin */
+@font-face {
+  font-family: 'Special Elite';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/specialelite/v11/XLYgIZbkc4JPUL5CVArUVL0ntnAOSA.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+</style>
+</head>
+<body>
+<div class="site">
+<div class="navbar">
+        <div class="navbutton"><a href="/">Home</a></div>
+        <div class="navbutton"><a href="/blog">Blog</a></div>
+</div>
+<div class="banner">Jackson Huff's Blog</div>
+<h4><div class="title">"Hacking" an LTE Modem Without Physical or Network Access</div></h4>
+<div class="text">Cellular devices are a bit of an oddity. They have never been bitten by the "open-source bug" that other kinds of electronics have. For example,
+several open-soruce smartphones already exist, but only have this distinction with a caveat. That's because their 4G-LTE/5G modems inside have never been fully documented or  
+had their source code released. This presents a problem to those of us who love having control over their devices. However, maybe this discovery will help us out at least a little bit.
+<div class="title">The Background</div>
+After buying two Mikrotik LTE devices, a wAP ac LTE6 and a SXT LTE6, I got to know them and learned all of the quirks of the LTE functionality. However, this all seemed mysterious to me. The Mikrotik Wiki only provides a few 
+useful commands, yet you need more to make the most of the modems inside. I saw in the logs that the modems are essentially flooded with AT commands on startup and reset. That's good and all, 
+but there is one killer feature that I still needed, and it was the ability to change the IMEI. As it turns out, many cellular plan restrictions exist based on IMEI number, and that's a non-starter for me.
+ I need the best I can get, so changing the IMEI to something else was my top priority. Here's how I figured it out with a bit of a clever "hack," inspired by <a href="https://i.blackhat.com/USA-19/Wednesday/us-19-Shupeng-All-The-4G-Modules-Could-Be-Hacked.pdf">
+this cool presentation.</a> Warning: Changing the IMEI of your Mikrotik modem may be illegal in some places, and I can't be responsible if anything bad happens.
+<div class="title">This Isn't Hacking!</div>
+I knew the title got you. The truth is, this could be called hacking under a few defintions, but because it's a blurry line, I put it in quotes. By "physical access," I mean physical access to the modem itself. By "network access," I mean access to the LTE network to which the modem is connected to. This rules out direct access by unsecured carrier networks.
+<div class="title">An Upgrade</div>  
+To start, I gathered all the facts I knew about Mikrotik's modems. <br>
+1. You can send direct AT commands to them with no restrictions from the router.<br>
+2. They all update through plain-old, port-80 HTTP.<br>
+As you'll see, these two facts enable us to do some cool things. I started by thinking about how to see where they get their updates (read: whole disk images) from. 
+I knew they were all unencrypted HTTP and so I just needed to sniff the packets from wherever they're updating from, and then I'm almost done. 
+I just needed a router that can sniff packets. As it turns out, I already use one such router (MT RB4011) at home and so this is easy peasy lemon squeezy. Here are the steps I used to
+ find out the update location: <br>
+1. Get Wireshark.<br>
+2. In my Mikrotik router, go to Tools -> Packet Sniffer and enable "Streaming."<br>
+<picture>
+<source type="image/webp" srcset="Screenshot1.webp" alt="Screenshot of a Mikrotik router in the Packet Sniffer menu" loading="lazy">
+<source type="image/png" srcset="Screenshot1.png" alt="Screenshot of a Mikrotik router in the Packet Sniffer menu" loading="lazy">
+<img src="Screenshot1.png" alt="Screenshot of a Mikrotik router in the Packet Sniffer menu" loading="lazy">
+</picture>
+3. Get Wireshark started and on the homescreen, enter "udp port 37008" in the filter selection box.<br>
+4. Select the right interface and start sniffing by enabling it on the router and selectively choosing the LTE device only.<br>
+5. Enter this command in your MT router: <div class="code">/interface lte firmware-upgrade lte1</div><br>
+6. Go back to Wireshark and see what you've got. The URL you'll find is the one used to check for new firmware versions.<br>
+<picture>
+<source type="image/webp" srcset="Screenshot2.webp" alt="Screenshot of Wireshark sniffing packets sent by the Mikrotik router" loading="lazy">
+<source type="image/png" srcset="Screenshot2.png" alt="Screenshot of Wireshark sniffing packets sent by the Mikrotik router" loading="lazy">
+<img src="Screenshot2.png" alt="Screenshot of Wireshark sniffing packets sent by the Mikrotik router" loading="lazy">
+</picture>
+This is great, but we need to know the actualy update location. The fix? Try doing an actual firmware upgrade:<br>
+7. Enter this command in your MT router: <div class="code">/interface lte firmware-upgrade lte1 upgrade=yes</div>
+8. After a couple seconds, stop the firmware upgrade by pressing <b>q</b>.
+9. Now let's try Wireshark again.
+<picture>
+<source type="image/webp" srcset="Screenshot3.webp" alt="Screenshot of Wireshark sniffing packets with more meaning" loading="lazy">
+<source type="image/png" srcset="Screenshot3.png" alt="Screenshot of Wireshark sniffing packets with more meaning" loading="lazy">
+<img src="Screenshot3.png" alt="Screenshot of Wireshark sniffing packets with more meaning" loading="lazy">
+</picture>
+10. Looks like we struck gold! The final URL of the upgrade image is http://upgrade.mikrotik.com/firmware/R11e-LTE6/image. Now, the next step is to download that and we're off to the races.
+<div class="title">Extraction</div>
+Now that I got the image, I needed some way to see what's inside. As it turns out, there's a tool called <b>binwalk</b> that's made for exactly this. The presentation I linked earlier 
+never mentioned it by name but rather showed its results. Trying binwalk out for this image, I get some juicy-looking listings.
+<picture>
+<source type="image/webp" srcset="Screenshot4.webp" alt="Results of using binwalk on the downloaded image" loading="lazy">
+<source type="image/png" srcset="Screenshot4.png" alt="Results of using binwalk on the downloaded image" loading="lazy">
+<img src="Screenshot4.png" alt="Results of using binwalk on the downloaded image" loading="lazy">
+</picture>
+To extract everything, use this: <div class="code">sudo binwalk -e image</div>
+This will make a folder called "<b>_image.extracted</b>." Now let's go into that folder and see (almost) everything on the modem.
+<picture>
+<source type="image/webp" srcset="Screenshot5.webp" alt="Screenshot of a folder view of the extracted image" loading="lazy">
+<source type="image/png" srcset="Screenshot5.png" alt="Screenshot of a folder view of the extracted image" loading="lazy">
+<img src="Screenshot5.png" alt="Screenshot of a folder view of the extracted image" loading="lazy">
+</picture>
+Visiting the extracted folder, you are met with a subfolder called "squashfs-root" and a bunch of mystery files. "squashfs-root" looks the most interesting, so that's what I'm tackling next.
+<div class="title">Exploration</div>
+At this point, I forgot about trying to figure out changing the IMEI and just explored the highly custom-made Linux distro that is the LTE modem firmware package. Going into 
+/bin, it looks like it uses Busybox, which immediately set off alarm bells in my head because now this modem isn't GPL-compliant. Forgetting about licenses, there a few neat additions
+ that are LTE-specific. "eeh" is some weird program I don't know about. "eeh_HowToConfig.txt" is weird because it's a text file in the binary folder. Exploring the contents, it explains 
+the various logging levels of the Marvell driver used. That could be helpful, but it's largely irrelevant to changing the IMEI, except for one part. On the Mikrotik forum,
+ many people have asked about changing the IMEI and failing for some reason. Sometimes, they mention an error message that claims the LTE modem is in "Non-Production Mode." This "eeh_HowToConfig.txt" file 
+mentions "Production Mode" and so could have potential. I couldn't find out how to actually change the log levels, though, so that method's out. I explored the other folders for several
+ hours and it was an exploration in itself. I also found out that this modem image is based on OpenWRT 14.07 as given by a couple files in /etc. There were also too many shell scripts to count, many complete with comments and cryptic memory addresses that are certainly Marvell-specific. I also discovered that the modem uses an ARM Cortex-A7 CPU, which I had to know in order to run the binaries. As I currently have an x86-64 laptop, I couldn't run these programs natively, so I needed some emulator to help. Luckily, qemu-arm saved the day. After installing that, I can now run all the mystery files that might reveal a lot. 
+<div class="title">Execution</div>
+After several fun hours of exploration, I had to finally see what the programs did. The first candidate was "atcmdsrv." This looked like it handled AT commands. Using qemu-arm with this command,
+<div class="code">qemu-arm --cpu cortex-a7 (my program)</div>
+I could get "atcmdsrv" to run.
+After running it in QEMU, I got 
+this cool message:
+<div class="code">/home/jackson/Downloads/_image.extracted/squashfs-root/bin/atcmdsrv: cache '/etc/ld.so.cache' is corrupt<br>
+Entry not found sys.log.option<br>
+Entry not found sys.atcmdsrv.loglevel<br>
+Entry not found persist.sys.atcmdsrv.loglevel<br>
+Entry not found sys.default.loglevel<br>
+</div> 
+Ok, that's not cool. I knew you can add <b>-h</b> or <b>--help</b> to get more info on a program, so I tried that, and it didn't come close to working! I also knew some programs 
+deviate from this behavior and so I tried <b>-help</b> next and got this:
+<div class="code">atcmdsrv  --  AT Command Server.  Call with atcmdsrv [inputs [output]]<br>
+CopyRight (c) 2006 Marvell Canada & Vincent Yeung<br>
+Usage: atcmdsrv [-l loglevel ]  [-s external-serial-port]<br>
+       [-f logfile] [-h] [-t yes/no]<br>
+Options:<br>
+      -l      Log level (same as log level:0-7, default: 5) <br>
+      -t      Enable the local test or not(default:no)<br>
+      -s      External serial port location <br>
+      -f      Specify a log file to log to<br>
+      -h      Print this message<br>
+      -A      AP only mode<br>
+atcmdsrv v3.0.0 Dec  3 2020 11:02:38<br>
+</div>  
+This is looking better. There's not much info provided, but it's a start! Now that I knew this programs handled all the AT commands, I needed a way to see all of them. I could try
+ decompiling this server program, but that's too hard. Instead, I tried a simpler method, and that's to use a hex editor. My choice was Ghex. 
+<picture>
+<source type="image/webp" srcset="Screenshot6.webp" alt="Screenshot of Ghex editing the atcmdsrv file" loading="lazy">
+<source type="image/png" srcset="Screenshot6.png" alt="Screenshot of Ghex editing the atcmdsrv file" loading="lazy">
+<img src="Screenshot6.png" alt="Screenshot of Ghex editing the atcmdsrv file" loading="lazy">
+</picture>
+Now let's search the whole program for "AT," or more specifically, "AT+" because that is how many AT commands start.
+<picture>
+<source type="image/webp" srcset="Screenshot7.webp" alt="Screenshot of Ghex performing a search of AT+" loading="lazy">
+<source type="image/png" srcset="Screenshot7.png" alt="Screenshot of Ghex performing a search of AT+" loading="lazy">
+<img src="Screenshot7.png" alt="Screenshot of Ghex performing a search of AT+" loading="lazy">
+</picture>
+It found a lot of matches! Now I'm going to search for commands relating to the so-called "Production Mode." Trying "production," I got the error messages that complain about this mode. 
+Trying "mode," I got the same. Finally, it hit me. People often use "prod" as a synonym for "production," so I tried that. I got what I needed! The command is <b>AT*PROD</b>. 
+<picture>
+<source type="image/webp" srcset="Screenshot8.webp" alt="Screenshot of the Mikrotik LTE device with AT*PROD\? being entered" loading="lazy">
+<source type="image/png" srcset="Screenshot8.png" alt="Screenshot of the Mikrotik LTE device with AT*PROD\? being entered" loading="lazy">
+<img src="Screenshot8.png" alt="Screenshot of the Mikrotik LTE device with AT*PROD\? being entered" loading="lazy">
+</picture>
+Now that I found the right command, let's try it out. To send commands to a Mikrotik LTE modem, use this:
+<div class="code">/interface lte at-chat lte1 input="my_command"</div>
+You can append "<b>\?</b>" to check for a certain value. I tried <b>AT*PROD\?</b> and got a value of 0. You can also append "<b>=(some value)</b>" to set some value with that command. Trying <b>AT*PROD=1</b>, that actually worked! It returned an OK status but no other information. 
+The other steps to change an IMEI are to first read my disclaimer at the top of this page, delete the IMEI and put in a new one. To delete an IMEI on the LTE6 modem, use <b>AT*MRD_IMEI=D</b> and check for an OK status in return. 
+One you've done that, put in a new IMEI with <b>AT*MRD_IMEI=W,0101,11JAN1970,my_imei</b>. It will check the check digit on the end, so make sure it's correct. After trying these commands, I still 
+got the error about "Non-Production Mode." The fix? Try <b>AT*PROD=2</b>. This definitely puts it into "Production Mode" and now you're golden. If you don't get an OK status for every command, 
+such as if you get a return code that mentions transmit power, this seems to be a bug and so keep trying. To queue up the IMEI, use <b>AT*MRD_IMEI\?</b>. When you're done, it might be a good idea 
+to disable "Production Mode" with <b>AT*PROD=0</b>.
+<div class="title">Results</div>
+Using the methods listed above, I managed to change the IMEI after first enabling "Production Mode" and then using a couple AT commands to change the IMEI.
+ Now my devices may as well be smartphones!
+</div>
+</div>
+</body>
+</html>

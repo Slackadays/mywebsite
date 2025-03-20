@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>How to make "Almost DPI" with Mikrotik firewall rules | Jackson Huff's Blog</title>
+<meta charset="UTF-8">
+<meta http-equiv=”content-language” content=”en-us”>
+<meta name="description" content="In this article, I show how to almost do DPI with simple router firewall rules.">
+<meta name="author" content="Jackson Huff">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="keywords" content="mikrotik, modem, huff, 4g, hotspot, mobile, wifi, firewall, dpi, connectivity, laptop, fast, 5G, networking, blog, mangle, filter, l7-address, layer-7, tls">
+<link rel="shortcut icon" href="/legacy-favicon.png">
+<link rel="stylesheet" type="text/css" href="/legacy-main.css">
+<link rel="preconnect" href="https://fonts.gstatic.com">
+<style>
+/* latin-ext */
+@font-face {
+  font-family: 'Lato';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/lato/v17/S6uyw4BMUTPHjxAwXjeu.woff2) format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Lato';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/lato/v17/S6uyw4BMUTPHjx4wXg.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Source Code Pro';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/sourcecodepro/v14/HI_XiYsKILxRpg3hIP6sJ7fM7PqtlsnDvecq_mk.woff2) format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Source Code Pro';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/sourcecodepro/v14/HI_XiYsKILxRpg3hIP6sJ7fM7PqtlsnDs-cq.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin */
+@font-face {
+  font-family: 'Special Elite';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/specialelite/v11/XLYgIZbkc4JPUL5CVArUVL0ntnAOSA.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+</style>
+</head>
+<body>
+<div class="site">
+<div class="navbar">
+        <div class="navbutton"><a href="/">Home</a></div>
+        <div class="navbutton"><a href="/blog">Blog</a></div>
+</div>
+<div class="banner">Jackson Huff's Blog</div>
+<h4><div class="title">Making "Almost DPI" with Mikrotik firewall rules</div></h4>
+<div class="text">
+In <a href="/blog/hotspot">my last article</a> about hotspots, I promised I would show how to do Deep Packet Inspection on your Mikrotik hotspot without outsourcing it to some externally-hosted service. This article 
+will show you just how to do that. The way it works is simple. If some traffic triggers any of the specific firewall rules, all packets on that connection will get marked as going through some VPN tunnel 
+on the hotspot. This VPN tunnel's traffic is encrypted and thus is "invisible" to all intermediaries between your hotspot and VPN endpoint. However, this also means that you need some kind of VPN server to act as 
+the other end to receive this redirected traffic. It could be a commercial VPN service or your home network, and either one works fine.
+<picture>
+<source type="image/webp" srcset="FirewallScreenshot.webp" alt="Screenshot of the firewall rules in the Mangle section">
+<source type="image/png" srcset="FirewallScreenshot.png" alt="Screenshot of the firewall rules in the Mangle section">
+<img src="FirewallScreenshot.png" alt="Screenshot of the firewall rules in the Mangle section">
+</picture>
+<div class="caption">A preview of what some of the rules will look like.</div>
+I'm going to go over every rule provided in my DPI list and tell you what it does, so get comfy!
+<div class="title">"Ackchyually that's not DPI."</div>
+I saw this coming a mile away. Because Mikrotik <i>does not</i> provide any actual Deep Packet Inspection facilities, many would assume that it's impossible to get even close having DPI-like 
+functionality. 
+<picture>
+<source type="image/webp" srcset="ackshually.webp" style="width: 30%; height: auto;">
+<source type="image/png" srcset="ackshually.png" style="width: 30%; height: auto;">
+<img src="ackshually.png" style="width: 30%; height: auto;">
+</picture>
+The problem with this is, the scope of this argument includes all network types and not just hotspots. However, if we change our scope to just Mikrotik-based networks, then it gets a little better. 
+By using other kinds of special firewall rules, you can redirect traffic to a service hosted on your own network that performs the DPI itself and then make a decision based on it. This could still work for the needs of a hotspot, 
+but the glaring problem is that this setup requires an external applicance to process traffic. You might say, "Why not redirect traffic over the VPN tunnel to the Deep Packet Inspector?" This 
+setup presents a new, even-worse problem. If all traffic travels through the VPN tunnel, then we lose performance on our hotspot and have indriectly solved our original problem because none of it can be inspected 
+by third parties. Therefore, this solution would be a waste to implement.
+<br><br>
+What if we limit our scope to just hotspots? Then, we would have no option of an external applicance as that falls outside the scope. What's left? My almost-DPI rules. Some people would still think these rules are akin to this video:<br> 
+<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/KLHRjaUBb3o" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="display: block; text-align: center; margin: auto;"></iframe>
+What if we went with the "Almost DPI" notion? Then, it would provide an experience similar to DPI, but not quite. This may or may not became a hinderance on the user experience. However, how much does it matter? As long as the right traffic gets redirected, it doesn't matter whether it's actually DPI or not. Still feeling triggered? Don't read any further.
+<div class="title">Back to the firewall rules.</div>
+If you just want to install the DPI rules onto your own hotspot, <a href="wAPDPIList.rsc">download the file here</a>. If you can't get the file to download in a browser, then try this in your computer terminal:
+<div class="code">curl https://jghuff.com/blog/dpi/wAPDPIList.rsc -o wAPDPIList.rsc</div>
+Then, go to Files->Upload File and select it. Then, run the scipt and it will automatically install 
+everything you need. There is still one more step, and it's to create a static default route to your VPN interface with the routing mark "vpn." <br><br>
+<br><br>
+There are four main parts to these DPI firewall rules. They are the Filter rules, Mangle rules, L7 Application rules, and Address List rules. 
+Most of the content is in the Mangle section, so let's check that out first. The first few lines are:
+<div class="code">/ip firewall mangle<br>
+add action=mark-connection chain=prerouting comment="redirect Windows ports" \<br>
+    connection-state=new dst-port=\<br>
+    445,987,1311,1503,1512,1688,3074,3389,3702,5000,5355,5357,5358,5481,5905 \<br>
+    new-connection-mark=vpn passthrough=yes protocol=tcp<br>
+add action=mark-connection chain=prerouting connection-state=new dst-port=\<br>
+    445,987,1311,1503,1512,1688,3074,3389,3702,5000,5355,5357,5358,5481,5905 \<br>
+    new-connection-mark=vpn passthrough=yes protocol=udp<br>
+add action=mark-connection chain=prerouting connection-state=new dst-port=\<br>
+    5985,5986,6516,6571,6602,6891-6901,7680,7777,8530,8531,8642,9080 \<br>
+    new-connection-mark=vpn passthrough=yes protocol=tcp<br>
+add action=mark-connection chain=prerouting connection-state=new dst-port=\<br>
+    5985,5986,6516,6571,6602,6891-6901,7680,7777,8530,8531,8642,9080 \<br>
+    new-connection-mark=vpn passthrough=yes protocol=udp<br>
+</div>
+The first line directs the RouterOS device to move to the Firewall Mangle section. The next two lines block 15 ports that only Windows-related services use with both the TCP and UDP protocols. The
+ next two lines block even more Windows-related ports, and the only reason to have these first four rules is because one rule cannot have more than 15 ports specified. One port that is used by other services is 5555, which FreeCiv uses.
+<div class="code">
+add action=mark-connection chain=prerouting comment="redirect Apple ports" \<br>
+    connection-state=new dst-port=2197,5223 new-connection-mark=vpn \<br>
+    passthrough=yes protocol=tcp<br>
+</div> 
+This rule redirects ports related to Apple services.
+<div class="code">
+add action=mark-routing chain=prerouting comment="apply connection marks" \<br>
+    connection-mark=vpn new-routing-mark=vpn passthrough=no<br>
+</div>
+This rule helps save CPU processing power by condensing the connection marks applied into a routing mark for all packets in a given connection.
+<div class="code">
+add action=jump chain=prerouting comment=\<br>
+    "redirect specific traffic marked by tls - *.apple.com" jump-target=tls \<br>
+    protocol=tcp tls-host=*.apple.com<br>
+add action=jump chain=prerouting comment=*xbox*.com jump-target=tls protocol=\<br>
+    tcp tls-host=*xbox*.com<br>
+add action=jump chain=prerouting comment=*a-msedge.net jump-target=tls \<br>
+    protocol=tcp tls-host=*a-msedge.net<br>
+</div>
+These rules start the TLS matching system. They match packets based on their detected TLS hosts, a feature only present if it is unencrypted.
+I included three domains to match against, although they will match many in effect because of the regex used.
+Why have action=jump? That's because this TLS matcher system is actually slightly complicated and needs several special steps to "complete" each rule.
+Additionally, we can't match against new connections only, as the TLS host option in packets is only present in connections which would 
+be classified as already active. To help solve this problem and to present an explicit "connection closed" error to the client,
+ we'll need to add another rule later to send a TCP rejection packet. However, this rule has to be in the Firewall Filter section so it won't be covered right now.
+<div class="code">
+add action=return chain=tls comment=\<br>
+    "return packets if the hosts are already added" dst-address-list=\<br>
+    tls_dst_host<br>
+</div>
+This rule brings connections back to the prerouting chain if the TLS host has already been put 
+in the list of hosts to be redirected by default. 
+<div class="code">
+add action=add-dst-to-address-list address-list=tls_dst_host \<br>
+    address-list-timeout=2h chain=tls<br>
+</div>
+This rule adds the TLS host to which the client is connecting to a list to be redirected.
+<div class="code">
+add action=mark-connection chain=tls new-connection-mark=tls_disconnect \<br>
+    passthrough=yes<br>
+</div>
+This rule marks all connections which reach the tls chain with tls_disconnect. This is only temporary, as these connections will immediately 
+be shut down by the special TCP reject rule in Firewall Filter.
+<div class="code">
+add action=return chain=tls
+</div>
+This rule simply returns the rule-matching process back to the prerouting chain.
+<div class="code">
+add action=mark-connection chain=prerouting dst-address-list=tls_dst_host \<br>
+    new-connection-mark=vpn passthrough=yes
+</div>
+This rule redirects all hosts which are on a list created by the previous rules.
+<div class="code">
+add action=mark-connection chain=prerouting comment=\<br>
+    "redirect known Windows update/telemetry servers" connection-state=new \<br>
+    dst-address-list=windows_telemetry new-connection-mark=vpn passthrough=\<br>
+    yes<br>
+add action=mark-connection chain=prerouting connection-state=new \<br>
+    dst-address-list=windows_update<br> new-connection-mark=vpn passthrough=yes<br>
+</div>
+These rules match destinations against a pre-set list of banned hosts. Here's the list which I got <a href="https://github.com/crazy-max/WindowsSpyBlocker">from here</a>: 
+<div class="code">
+/ip firewall address-list<br>
+add address=13.68.87.47 list=windows_update<br>
+add address=13.68.87.175 list=windows_update<br>
+add address=13.68.88.129 list=windows_update<br>
+add address=13.68.93.109 list=windows_update<br>
+add address=13.74.179.117 list=windows_update<br>
+add address=13.78.168.230 list=windows_update<br>
+add address=13.78.177.144 list=windows_update<br>
+add address=13.78.179.199 list=windows_update<br>
+add address=13.78.180.50 list=windows_update<br>
+add address=13.78.180.90 list=windows_update<br>
+add address=13.78.184.44 list=windows_update<br>
+add address=13.78.184.186 list=windows_update<br>
+add address=13.78.186.254 list=windows_update<br>
+add address=13.78.187.58 list=windows_update<br>
+add address=13.78.230.134 list=windows_update<br>
+add address=13.83.148.218 list=windows_update<br>
+add address=13.83.148.235 list=windows_update<br>
+add address=13.83.149.5 list=windows_update<br>
+add address=13.83.149.67 list=windows_update<br>
+add address=13.83.151.160 list=windows_update<br>
+add address=13.86.124.174 list=windows_update<br>
+add address=13.86.124.184 list=windows_update<br>
+add address=13.86.124.191 list=windows_update<br>
+add address=13.91.16.64 list=windows_update<br>
+add address=13.91.16.65 list=windows_update<br>
+add address=13.91.16.66 list=windows_update<br>
+add address=13.92.211.120 list=windows_update<br>
+add address=13.107.4.50 list=windows_update<br>
+add address=13.107.4.52 list=windows_update<br>
+add address=13.107.4.254 list=windows_update<br>
+add address=20.36.218.63 list=windows_update<br>
+add address=20.36.218.70 list=windows_update<br>
+add address=20.36.222.39 list=windows_update<br>
+add address=20.36.252.130 list=windows_update<br>
+add address=20.41.41.23 list=windows_update<br>
+add address=20.42.24.29 list=windows_update<br>
+add address=20.42.24.50 list=windows_update<br>
+add address=20.44.77.24 list=windows_update<br>
+add address=20.44.77.45 list=windows_update<br>
+add address=20.44.77.49 list=windows_update<br>
+add address=20.44.77.219 list=windows_update<br>
+add address=20.45.4.77 list=windows_update<br>
+add address=20.45.4.178 list=windows_update<br>
+add address=20.54.24.69 list=windows_update<br>
+add address=20.54.24.79 list=windows_update<br>
+add address=20.54.24.148 list=windows_update<br>
+add address=20.54.24.169 list=windows_update<br>
+add address=20.54.24.231 list=windows_update<br>
+add address=20.54.24.246 list=windows_update<br>
+add address=20.54.25.4 list=windows_update<br>
+add address=20.54.25.16 list=windows_update<br>
+add address=20.54.89.15 list=windows_update<br>
+add address=20.54.89.106 list=windows_update<br>
+add address=20.62.190.184 list=windows_update<br>
+add address=20.62.190.185 list=windows_update<br>
+add address=20.62.190.186 list=windows_update<br>
+add address=20.185.109.208 list=windows_update<br>
+add address=20.186.48.46 list=windows_update<br>
+add address=20.188.74.161 list=windows_update<br>
+add address=20.188.78.184 list=windows_update<br>
+add address=20.188.78.185 list=windows_update<br>
+add address=20.188.78.187 list=windows_update<br>
+add address=20.188.78.188 list=windows_update<br>
+add address=20.188.78.189 list=windows_update<br>
+add address=20.190.3.175 list=windows_update<br>
+add address=20.190.9.86 list=windows_update<br>
+add address=20.191.46.109 list=windows_update<br>
+add address=20.191.46.211 list=windows_update<br>
+add address=23.103.189.125 list=windows_update<br>
+add address=23.103.189.126 list=windows_update<br>
+add address=23.103.189.157 list=windows_update<br>
+add address=23.103.189.158 list=windows_update<br>
+add address=40.67.248.104 list=windows_update<br>
+add address=40.67.251.132 list=windows_update<br>
+add address=40.67.251.134 list=windows_update<br>
+add address=40.67.252.175 list=windows_update<br>
+add address=40.67.252.206 list=windows_update<br>
+add address=40.67.253.249 list=windows_update<br>
+add address=40.67.254.36 list=windows_update<br>
+add address=40.67.254.97 list=windows_update<br>
+add address=40.67.255.199 list=windows_update<br>
+add address=40.69.216.73 list=windows_update<br>
+add address=40.69.216.129 list=windows_update<br>
+add address=40.69.216.251 list=windows_update<br>
+add address=40.69.218.62 list=windows_update<br>
+add address=40.69.219.197 list=windows_update<br>
+add address=40.69.220.46 list=windows_update<br>
+add address=40.69.221.239 list=windows_update<br>
+add address=40.69.222.109 list=windows_update<br>
+add address=40.69.223.39 list=windows_update<br>
+add address=40.69.223.198 list=windows_update<br>
+add address=40.70.224.144 list=windows_update<br>
+add address=40.70.224.145 list=windows_update<br>
+add address=40.70.224.147 list=windows_update<br>
+add address=40.70.224.148 list=windows_update<br>
+add address=40.70.224.149 list=windows_update<br>
+add address=40.70.229.150 list=windows_update<br>
+add address=40.77.18.167 list=windows_update<br>
+add address=40.77.224.8 list=windows_update<br>
+add address=40.77.224.11 list=windows_update<br>
+add address=40.77.224.145 list=windows_update<br>
+add address=40.77.224.254 list=windows_update<br>
+add address=40.77.226.13 list=windows_update<br>
+add address=40.77.226.181 list=windows_update<br>
+add address=40.77.226.246 list=windows_update<br>
+add address=40.77.226.247 list=windows_update<br>
+add address=40.77.226.248 list=windows_update<br>
+add address=40.77.226.249 list=windows_update<br>
+add address=40.77.226.250 list=windows_update<br>
+add address=40.77.229.8 list=windows_update<br>
+add address=40.77.229.9 list=windows_update<br>
+add address=40.77.229.12 list=windows_update<br>
+add address=40.77.229.13 list=windows_update<br>
+add address=40.77.229.16 list=windows_update<br>
+add address=40.77.229.21 list=windows_update<br>
+add address=40.77.229.22 list=windows_update<br>
+add address=40.77.229.24 list=windows_update<br>
+add address=40.77.229.26 list=windows_update<br>
+add address=40.77.229.27 list=windows_update<br>
+add address=40.77.229.29 list=windows_update<br>
+add address=40.77.229.30 list=windows_update<br>
+add address=40.77.229.32 list=windows_update<br>
+add address=40.77.229.35 list=windows_update<br>
+add address=40.77.229.38 list=windows_update<br>
+add address=40.77.229.44 list=windows_update<br>
+add address=40.77.229.45 list=windows_update<br>
+add address=40.77.229.50 list=windows_update<br>
+add address=40.77.229.53 list=windows_update<br>
+add address=40.77.229.62 list=windows_update<br>
+add address=40.77.229.65 list=windows_update<br>
+add address=40.77.229.67 list=windows_update<br>
+add address=40.77.229.69 list=windows_update<br>
+add address=40.77.229.70 list=windows_update<br>
+add address=40.77.229.71 list=windows_update<br>
+add address=40.77.229.74 list=windows_update<br>
+add address=40.77.229.76 list=windows_update<br>
+add address=40.77.229.80 list=windows_update<br>
+add address=40.77.229.81 list=windows_update<br>
+add address=40.77.229.82 list=windows_update<br>
+add address=40.77.229.88 list=windows_update<br>
+add address=40.77.229.118 list=windows_update<br>
+add address=40.77.229.123 list=windows_update<br>
+add address=40.77.229.128 list=windows_update<br>
+add address=40.77.229.133 list=windows_update<br>
+add address=40.77.229.141 list=windows_update<br>
+add address=40.77.229.199 list=windows_update<br>
+add address=40.79.65.78 list=windows_update<br>
+add address=40.79.65.123 list=windows_update<br>
+add address=40.79.65.235 list=windows_update<br>
+add address=40.79.65.237 list=windows_update<br>
+add address=40.79.66.194 list=windows_update<br>
+add address=40.79.66.209 list=windows_update<br>
+add address=40.79.67.176 list=windows_update<br>
+add address=40.79.70.158 list=windows_update<br>
+add address=40.91.73.169 list=windows_update<br>
+add address=40.91.73.219 list=windows_update<br>
+add address=40.91.75.5 list=windows_update<br>
+add address=40.91.80.89 list=windows_update<br>
+add address=40.91.91.94 list=windows_update<br>
+add address=40.91.120.196 list=windows_update<br>
+add address=40.91.122.44 list=windows_update<br>
+add address=40.125.122.151 list=windows_update<br>
+add address=40.125.122.176 list=windows_update<br>
+add address=51.103.5.159 list=windows_update<br>
+add address=51.103.5.186 list=windows_update<br>
+add address=51.104.162.50 list=windows_update<br>
+add address=51.104.162.168 list=windows_update<br>
+add address=51.104.164.114 list=windows_update<br>
+add address=51.104.167.48 list=windows_update<br>
+add address=51.104.167.186 list=windows_update<br>
+add address=51.104.167.245 list=windows_update<br>
+add address=51.104.167.255 list=windows_update<br>
+add address=51.105.249.223 list=windows_update<br>
+add address=51.105.249.228 list=windows_update<br>
+add address=51.105.249.239 list=windows_update<br>
+add address=52.142.21.136 list=windows_update<br>
+add address=52.137.102.105 list=windows_update<br>
+add address=52.137.103.96 list=windows_update<br>
+add address=52.137.103.130 list=windows_update<br>
+add address=52.137.110.235 list=windows_update<br>
+add address=52.142.21.137 list=windows_update<br>
+add address=52.142.21.140 list=windows_update<br>
+add address=52.142.21.141 list=windows_update<br>
+add address=52.143.80.209 list=windows_update<br>
+add address=52.143.81.222 list=windows_update<br>
+add address=52.143.84.45 list=windows_update<br>
+add address=52.143.86.214 list=windows_update<br>
+add address=52.143.87.28 list=windows_update<br>
+add address=52.147.176.8 list=windows_update<br>
+add address=52.148.148.114 list=windows_update<br>
+add address=52.152.108.96 list=windows_update<br>
+add address=52.152.110.14 list=windows_update<br>
+add address=52.155.95.90 list=windows_update<br>
+add address=52.155.115.56 list=windows_update<br>
+add address=52.155.169.137 list=windows_update<br>
+add address=52.155.183.99 list=windows_update<br>
+add address=52.155.217.156 list=windows_update<br>
+add address=52.155.223.194 list=windows_update<br>
+add address=52.156.144.83 list=windows_update<br>
+add address=52.158.114.119 list=windows_update<br>
+add address=52.158.122.14 list=windows_update<br>
+add address=52.161.15.246 list=windows_update<br>
+add address=52.164.221.179 list=windows_update<br>
+add address=52.164.226.245 list=windows_update<br>
+add address=52.167.222.82 list=windows_update<br>
+add address=52.167.222.147 list=windows_update<br>
+add address=52.167.223.135 list=windows_update<br>
+add address=52.169.82.131 list=windows_update<br>
+add address=52.169.83.3 list=windows_update<br>
+add address=52.169.87.42 list=windows_update<br>
+add address=52.169.123.48 list=windows_update<br>
+add address=52.175.23.79 list=windows_update<br>
+add address=52.177.164.251 list=windows_update<br>
+add address=52.177.247.15 list=windows_update<br>
+add address=52.178.192.146 list=windows_update<br>
+add address=52.179.216.235 list=windows_update<br>
+add address=52.179.219.14 list=windows_update<br>
+add address=52.183.47.176 list=windows_update<br>
+add address=52.183.118.171 list=windows_update<br>
+add address=52.184.152.136 list=windows_update<br>
+add address=52.184.155.206 list=windows_update<br>
+add address=52.184.212.181 list=windows_update<br>
+add address=52.184.213.21 list=windows_update<br>
+add address=52.184.213.187 list=windows_update<br>
+add address=52.184.214.53 list=windows_update<br>
+add address=52.184.214.123 list=windows_update<br>
+add address=52.184.214.139 list=windows_update<br>
+add address=52.184.216.174 list=windows_update<br>
+add address=52.184.216.226 list=windows_update<br>
+add address=52.184.216.246 list=windows_update<br>
+add address=52.184.217.20 list=windows_update<br>
+add address=52.184.217.37 list=windows_update<br>
+add address=52.184.217.56 list=windows_update<br>
+add address=52.187.60.107 list=windows_update<br>
+add address=52.188.72.233 list=windows_update<br>
+add address=52.226.130.114 list=windows_update<br>
+add address=52.229.170.171 list=windows_update<br>
+add address=52.229.170.224 list=windows_update<br>
+add address=52.229.171.86 list=windows_update<br>
+add address=52.229.171.202 list=windows_update<br>
+add address=52.229.172.155 list=windows_update<br>
+add address=52.229.174.29 list=windows_update<br>
+add address=52.229.174.172 list=windows_update<br>
+add address=52.229.174.233 list=windows_update<br>
+add address=52.229.175.79 list=windows_update<br>
+add address=52.230.216.17 list=windows_update<br>
+add address=52.230.216.157 list=windows_update<br>
+add address=52.230.220.159 list=windows_update<br>
+add address=52.230.223.92 list=windows_update<br>
+add address=52.230.223.167 list=windows_update<br>
+add address=52.232.225.93 list=windows_update<br>
+add address=52.238.248.1 list=windows_update<br>
+add address=52.238.248.2 list=windows_update<br>
+add address=52.238.248.3 list=windows_update<br>
+add address=52.242.97.97 list=windows_update<br>
+add address=52.242.101.226 list=windows_update<br>
+add address=52.242.231.32 list=windows_update<br>
+add address=52.242.231.33 list=windows_update<br>
+add address=52.242.231.35 list=windows_update<br>
+add address=52.242.231.36 list=windows_update<br>
+add address=52.242.231.37 list=windows_update<br>
+add address=52.243.153.146 list=windows_update<br>
+add address=52.248.96.36 list=windows_update<br>
+add address=52.249.24.101 list=windows_update<br>
+add address=52.249.58.51 list=windows_update<br>
+add address=52.250.46.232 list=windows_update<br>
+add address=52.250.46.237 list=windows_update<br>
+add address=52.250.46.238 list=windows_update<br>
+add address=52.250.195.200 list=windows_update<br>
+add address=52.250.195.204 list=windows_update<br>
+add address=52.250.195.206 list=windows_update<br>
+add address=52.250.195.207 list=windows_update<br>
+add address=52.253.130.84 list=windows_update<br>
+add address=52.254.106.61 list=windows_update<br>
+add address=64.4.27.50 list=windows_update<br>
+add address=65.52.108.29 list=windows_update<br>
+add address=65.52.108.33 list=windows_update<br>
+add address=65.52.108.59 list=windows_update<br>
+add address=65.52.108.90 list=windows_update<br>
+add address=65.52.108.92 list=windows_update<br>
+add address=65.52.108.153 list=windows_update<br>
+add address=65.52.108.154 list=windows_update<br>
+add address=65.52.108.185 list=windows_update<br>
+add address=65.55.242.254 list=windows_update<br>
+add address=66.119.144.157 list=windows_update<br>
+add address=66.119.144.158 list=windows_update<br>
+add address=66.119.144.189 list=windows_update<br>
+add address=66.119.144.190 list=windows_update<br>
+add address=67.26.27.254 list=windows_update<br>
+add address=104.45.177.233 list=windows_update<br>
+add address=111.221.29.40 list=windows_update<br>
+add address=134.170.51.187 list=windows_update<br>
+add address=134.170.51.188 list=windows_update<br>
+add address=134.170.51.190 list=windows_update<br>
+add address=134.170.51.246 list=windows_update<br>
+add address=134.170.51.247 list=windows_update<br>
+add address=134.170.51.248 list=windows_update<br>
+add address=134.170.53.29 list=windows_update<br>
+add address=134.170.53.30 list=windows_update<br>
+add address=134.170.115.55 list=windows_update<br>
+add address=134.170.115.56 list=windows_update<br>
+add address=134.170.115.60 list=windows_update<br>
+add address=134.170.115.62 list=windows_update<br>
+add address=134.170.165.248 list=windows_update<br>
+add address=134.170.165.249 list=windows_update<br>
+add address=134.170.165.251 list=windows_update<br>
+add address=134.170.165.253 list=windows_update<br>
+add address=137.135.62.92 list=windows_update<br>
+add address=157.55.133.204 list=windows_update<br>
+add address=157.55.240.89 list=windows_update<br>
+add address=157.55.240.126 list=windows_update<br>
+add address=157.55.240.220 list=windows_update<br>
+add address=157.56.77.138 list=windows_update<br>
+add address=157.56.77.139 list=windows_update<br>
+add address=157.56.77.140 list=windows_update<br>
+add address=157.56.77.141 list=windows_update<br>
+add address=157.56.77.148 list=windows_update<br>
+add address=157.56.77.149 list=windows_update<br>
+add address=157.56.96.54 list=windows_update<br>
+add address=157.56.96.58 list=windows_update<br>
+add address=157.56.96.123 list=windows_update<br>
+add address=157.56.96.157 list=windows_update<br>
+add address=191.232.80.53 list=windows_update<br>
+add address=191.232.80.58 list=windows_update<br>
+add address=191.232.80.60 list=windows_update<br>
+add address=191.232.80.62 list=windows_update<br>
+add address=191.232.139.2 list=windows_update<br>
+add address=191.232.139.182 list=windows_update<br>
+add address=191.232.139.253 list=windows_update<br>
+add address=191.232.139.254 list=windows_update<br>
+add address=191.234.72.183 list=windows_update<br>
+add address=191.234.72.186 list=windows_update<br>
+add address=191.234.72.188 list=windows_update<br>
+add address=191.234.72.190 list=windows_update<br>
+add address=207.46.114.58 list=windows_update<br>
+add address=207.46.114.61 list=windows_update<br>
+add address=13.64.90.137 list=windows_telemetry<br>
+add address=13.68.31.193 list=windows_telemetry<br> 
+</div>
+That's a lot of addresses!
+<div class="code">
+add action=mark-connection chain=prerouting comment="redirect devices which ma\<br>
+    ke unencrypted requests for Apple/Windows hosts" dst-address=\<br>
+    !192.168.0.0/16 layer7-protocol=Windows new-connection-mark=vpn \<br>
+    passthrough=yes protocol=tcp<br>
+add action=mark-connection chain=prerouting dst-address=!192.168.0.0/16 \<br>
+    layer7-protocol=Apple new-connection-mark=vpn passthrough=yes protocol=\<br>
+    tcp<br>
+add action=add-src-to-address-list address-list=redirected_hosts \<br>
+    address-list-timeout=15m chain=prerouting comment=\<br>
+    "mark hosts that make dns connections to Apple/Windows hosts" dst-port=53 \<br>
+    layer7-protocol=Apple protocol=udp<br>
+add action=add-src-to-address-list address-list=redirected_hosts \<br>
+    address-list-timeout=15m chain=prerouting dst-port=53 layer7-protocol=\<br>
+    Windows protocol=udp<br>
+</div>
+These rules match unencrypted general traffic and DNS requests by using Layer-7 Application regex.
+<div class="code">
+add action=mark-connection chain=prerouting dst-address-list=!undirected_dst \<br>
+    new-connection-mark=vpn passthrough=yes src-address-list=redirected_hosts<br>
+</div>
+This is a helper rule with the L7 regex. It works by not redirecting sites visited to by "trusted" devices on the network, and "trusted" means they have not triggered any of the L7 regex 
+rules.
+<div class="code">
+add action=mark-routing chain=prerouting comment="apply connection marks" \<br>
+    connection-mark=vpn new-routing-mark=vpn passthrough=no<br>
+</div>
+This rule is a repeat of another rule above. It applies the routing marks to any connection in which connection-mark=vpn.
+<div class="code">
+add action=add-dst-to-address-list address-list=undirected_dst \<br>
+    address-list-timeout=1d chain=prerouting comment=\<br>
+    "add \"trusted\" hosts to a trusted list" connection-state=new dst-port=\<br>
+    80,443 protocol=tcp src-address-list=!redirected_hosts<br>
+</div>
+This last Firewall Mangle rule adds "trusted" hosts to an address list where they can be further processed and have their sites visited also added to an address list.
+<div class="code">
+/ip firewall filter<br>
+add action=reject chain=forward comment=\<br>
+    "reset tcp connections which have just been marked with tls" \<br>
+    connection-mark=tls_disconnect protocol=tcp reject-with=tcp-reset<br>
+</div>
+This rule, in Firewall Filter, rejects all connections with the connection mark of tls_disconnect. This forcibly closes the TCP connection and makes the client create a new one, sent through the VPN instead due to its now-new 
+placement in an address list of hosts to be redirected.
+<div class="title">Wowie!</div>
+That's a lot of firewall rules. However, there are a couple of ways I can think of to expand these rules further:<br><br>
+1. Add catchall TLS matcher rule(s). <br>
+To do this, I would add a rule that matches the TLS host for <i>all</i> detected TLS hosts and have that site added to the "trusted" address list. However, that could require adding 
+in a new chain and a couple extra rules, and I don't feel like doing that right now.<br><br>
+2. Add more domain names to the premade address list. <br>
+This is the original solution I came up with before I made this entire list of "Almost DPI" rules. However, it presented a supersized problem, and it's that updating hundreds of domains 
+created perpetual traffic from my hotspot of a speed about 125kb/s. If the hotspot is on 24/7 for a month, that's tens of gigabytes of data. That simply wasn't acceptable and I needed a 
+fix. This may be an acceptable addition if there is some way to increase the TTL of the domains so that they are not updated as often.
+<div class="title">One More Step!</div>
+To finish this off, you'll need to create the VPN tunnel in order to use it. RouterOS offers many good options, including OpenVPN, Wireguard, L2TP(/IPSec), SSTP, and maybe PPTP. There are 
+already many tutorials on how to create a VPN client in Mikrotik, so I'll leave that for you to do yourself. However, to actually use it, you'll need to make a static route. To do this, 
+go to IP->Routes in the GUI and select Add New. Choose a destination address of 0.0.0.0/0 and set the gateway to be the VPN interface. Then, in routing-mark, set it to "vpn." This method will only work in ROS version 6. In version 7, before you create the route, create a new routing table called "vpn." Then, add the static route in the table without specfying routing-mark because 
+you won't be able to. Now, in Rules, add a new one that has a routing-mark of "vpn" and have the action be to lookup in table "vpn."
+</div>
+</div>
+</body>
+</html>

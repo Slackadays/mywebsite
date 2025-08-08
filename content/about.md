@@ -1,5 +1,6 @@
 +++
 title = "About Jackson Huff"
+template = "generic-page.html"
 +++
 
 # Hey there!

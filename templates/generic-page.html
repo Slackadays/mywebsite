@@ -2,10 +2,8 @@
 
 {% block content %}
 <h1 class="title">
-  Hey there!
+  {{ page.title }}
 </h1>
-<p>
-  Sample text
-</p>
+{{ page.content | safe }}
 
 {% endblock content %}

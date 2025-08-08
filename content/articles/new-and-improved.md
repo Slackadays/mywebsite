@@ -5,4 +5,10 @@ date = 2025-03-21
 
 # Welcome to my new and improved website!
 
-Blah blah blaH
+Blah blah blah
+
+```cpp
+int main() {
+    // sample code 
+}
+```

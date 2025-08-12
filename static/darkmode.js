@@ -21,10 +21,10 @@ function toggleDarkMode() {
     // Toggle the dark mode based on the cookie value
     if (darkModeCookie) {
         setMode('light');
-        document.cookie = 'darkMode=false';
+        document.cookie = 'darkMode=false; path=/';
     } else {
         setMode('dark');
-        document.cookie = 'darkMode=true';
+        document.cookie = 'darkMode=true; path=/';
     }
 }
 

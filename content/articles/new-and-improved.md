@@ -1,9 +1,7 @@
 +++
-title = "Welcome to the new and improved JH's Website"
-date = 2025-03-21
+title = "Welcome to my new and improved website"
+date = 2025-08-11
 +++
-
-# Welcome to my new and improved website!
 
 Blah blah blah
 

@@ -14,7 +14,7 @@
 }
 
 html, body {
-  background-color: #e7dfca;
+  background-color: #d4d7d7;
   height: 100%;
   margin: 0;
 }
@@ -24,12 +24,15 @@ a {
   text-decoration: none;
 }
 
+p a {
+  text-decoration: underline;
+}
+
 div.header {
   font-family: 'Shadows Into Light';
   font-size: 2em;
   padding: 0.5em;
-  background-color: rgba(249, 236, 216, 0.92);
-  backdrop-filter: blur(1px);
+  background-color: #d0d4d4;
   display: flex;
   justify-content: space-between;
 }
@@ -50,6 +53,14 @@ div.content {
 h1 {
   font-family: 'Shadows Into Light';
   font-size: 4em;
+  text-align: center;
+}
+
+div.article-title {
+  font-family: 'Outfit';
+  font-size: 3em;
+  text-align: center;
+  margin-top: 50px;
 }
 
 p {
@@ -57,15 +68,15 @@ p {
   font-size: 1.5em;
 }
 
-div.article-title {
-  font-family: 'Shadows Into Light';
-  font-size: 3em;
+div.article-title-preview {
+  font-family: 'Outfit';
+  font-size: 2.5em;
   margin-top: 40px;
 }
 
-div.article-description {
-  font-family: 'Outfit';
-  font-size: 1.5em;
+div.article-date {
+  font-family: 'Shadows Into Light';
+  font-size: 2em;
   margin-top: -10px;
 }
 
@@ -76,28 +87,60 @@ div.detail {
 
 pre {
   font-family: 'Google Sans Code';
-  font-size: 1.5em;
+  font-size: 1.4em;
   border-radius: 5px;
   padding: 10px;
 }
 
 @media screen and (max-width: 990px) {
   div.header {
-    font-size: 2.5em;
+    font-size: 1.7em;
+    display: block;
+    text-align: center;
+    padding-bottom: 20px;
+  }
+
+  div.nav {
+    padding-right: 0;
+    float: none;
+    justify-content: center;
+  }
+
+  div.article-title {
+    font-family: 'Outfit';
+    font-size: 1.8em;
+    text-align: center;
+  }
+
+  div.article-title-preview {
+    font-size: 1.8em;
+  }
+
+  div.article-date {
+    font-size: 1.6em;
   }
 
   div.content {
     max-width: 100%;
-    font-size: 1.6em;
-    padding: 20px;
+    padding: 10px;
   }
 
   h1 {
-    font-size: 3em;
+    font-size: 2.3em;
     margin-bottom: 0;
   }
 
   p {
-    margin-top: 0;
+    margin-top: 20px;
+    font-size: 1.3em;
+  }
+
+  ul {
+    padding-left: 0;
+  }
+
+  pre {
+    font-size: 1.3em;
+    padding: 5px;
   }
 }

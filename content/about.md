@@ -1,8 +1,8 @@
 +++
-title = "About Jackson Huff"
+title = "About me"
 template = "generic-page.html"
 +++
 
-# Hey there!
+I'm a student at the University of Central Florida studying Photonics Science & Engineering along with Leadership and Math.
 
-I'm Jackson Huff and I'm a blah blah blah lorem ipsum.
+# Test

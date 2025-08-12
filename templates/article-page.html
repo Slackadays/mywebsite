@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1 class="title">
+<div class="article-title">
   {{ page.title }}
-</h1>
-<p class="subtitle"><strong>Published {{ page.date }}</strong></p>
+</div>
+<div class="article-date" style="text-align: center;">Published {{ page.date }}</div>
 {{ page.content | safe }}
 
 {% endblock content %}

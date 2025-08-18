@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+        <loc>https://jghuff.com/</loc>
+    </url>
+    <url>
+        <loc>https://jghuff.com/about/</loc>
+    </url>
+    <url>
+        <loc>https://jghuff.com/articles/</loc>
+    </url>
+    <url>
+        <loc>https://jghuff.com/articles/new-and-improved/</loc>
+        <lastmod>2025-08-11</lastmod>
+    </url>
+    <url>
+        <loc>https://jghuff.com/articles/old/</loc>
+        <lastmod>2021-07-24</lastmod>
+    </url>
+    <url>
+        <loc>https://jghuff.com/articles/ultrassembler-so-fast/</loc>
+        <lastmod>2025-08-15</lastmod>
+    </url>
+    <url>
+        <loc>https://jghuff.com/format-test/</loc>
+    </url>
+</urlset>

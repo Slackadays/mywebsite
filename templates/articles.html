@@ -7,7 +7,7 @@
 <ul>
   <!-- If you are using pagination, section.pages will be empty.
        You need to use the paginator object -->  
-  {% for page in section.pages %}<a href="{{ page.permalink | safe }}">
+  {% for page in section.pages %}<a id="article" href="{{ page.permalink | safe }}">
   <div class="article-title-preview">{{ page.title }}</div>
   <div class="article-date">{{ page.date }}</div></a>
   {% endfor %}

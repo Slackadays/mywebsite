@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="icon" href="/favicon.png" type="image/png">
+        <title>Jackson Huff&#x27;s Website</title>
+        <link rel="stylesheet" type="text/css" href="/main.css">
+        <link rel="stylesheet" type="text/css" href="/light.css" media="none">
+        <link rel="stylesheet" type="text/css" href="/dark.css" media="none">
+        <script src="/darkmode.js" defer></script>
+    </head>
+    <body>
+        <div class="header">
+            <div class="header-title">
+                <a href="/">Jackson Huff&#x27;s Website</a>
+            </div>
+            <div class="nav">
+                <a href="/about">About</a>
+                <a href="/articles">Articles</a>
+                <a href="#" onclick="toggleDarkMode()" id="darkmodebutton">Dark Mode</a>
+            </div>
+        </div>
+        <div class="content">
+            
+<div class="article-title">
+  How is Ultrassembler so fast?
+</div>
+<div class="article-date" style="text-align: center;">Published 2025-08-15</div>
+<p><a href="https://github.com/Slackadays/Chata/tree/main/ultrassembler">Ultrassembler</a> is a superfast and complete RISC-V assembler library that I'm writing as a component of the bigger <a href="https://github.com/Slackadays/Chata">Chata signal processing</a> project.</p>
+<p>"Why would you want to do this?" you might ask. First, existing RISC-V assemblers that conform the the entirety of the specification, <code>as</code> and <code>llvm-mc</code>, ship as binaries that you run as standalone programs. This is normally not an issue. However, in Chata's case, it needs to access a RISC-V assembler from within its C++ code. The usual way to accomplish this task is to use some ugly C function like <code>system()</code> to run external software as if it were a human or script running it from a command line.</p>
+<p>Here's an example of what I'm talking about:</p>
+<pre data-lang="cpp" style="background-color:#2b303b;color:#c0c5ce;" class="language-cpp "><code class="language-cpp" data-lang="cpp"><span style="color:#b48ead;">#include </span><span>&lt;</span><span style="color:#a3be8c;">iostream</span><span>&gt;
+</span><span style="color:#b48ead;">#include </span><span>&lt;</span><span style="color:#a3be8c;">string</span><span>&gt;
+</span><span style="color:#b48ead;">#include </span><span>&lt;</span><span style="color:#a3be8c;">stdlib.h</span><span>&gt;
+</span><span>
+</span><span style="color:#b48ead;">int </span><span style="color:#8fa1b3;">main</span><span>() {
+</span><span>    std::string command = &quot;</span><span style="color:#a3be8c;">riscv64-linux-gnu-as code.s -o code.bin</span><span>&quot;;
+</span><span>
+</span><span>    </span><span style="color:#b48ead;">int</span><span> res = std::</span><span style="color:#96b5b4;">system</span><span>(command.</span><span style="color:#bf616a;">data</span><span>());
+</span><span>
+</span><span>    </span><span style="color:#b48ead;">if </span><span>(res != </span><span style="color:#d08770;">0</span><span>) {
+</span><span>        std::cerr &lt;&lt; &quot;</span><span style="color:#a3be8c;">Error executing command: </span><span>&quot; &lt;&lt; command &lt;&lt; std::endl;
+</span><span>    }
+</span><span>    </span><span style="color:#b48ead;">return</span><span> res;
+</span><span>}
+</span></code></pre>
+<p>It gets even uglier once you realize you need temporary files and possibly have to artisanally craft the command beforehand. Additionally, invoking the assembler in this manner incurs a significant performance overhead on embedded systems which lack processing power. There has GOT to be a better way. Enter Ultrassembler.</p>
+<p>With these two goals of speed and quality in mind, I wrote Ultrassembler as a completely standalone library with GNU <code>as</code> as the performance and standard conformity benchmark. The results are nothing short of staggering. After months of peformance optimization, Ultrassembler can assemble a test file with about 16 thousand RISC-V instructions over 10 times faster than <code>as</code>, and around 20 times faster than <code>llvm-mc</code>.</p>
+<p>Such performance ensures a good user experience on the platforms where Chata runs, but also as a consequence of this lack of overhead, you could also combine Ultrassembler with fantastic libraries like <a href="https://github.com/libriscv/libriscv">libriscv</a> to implement low-to-no-cost RISC-V scripting in things like games, or maybe even in your JIT programming language!</p>
+<p>So let's look at how exactly I made it this fast so you can reap the benefits too.</p>
+<h1 id="exceptions">Exceptions</h1>
+<p>Exceptions, C++'s first way of handling errors, are slow. Super duper slow. So slow, in fact, that many Programming Furus©️®️™️ say you should never ever use them. They'll infect your code with their slowness and transform you into a slow old hunchback in no time.</p>
+<p>Or so you would think.</p>
+<p>C++ exceptions, despite being so derided, are in fact zero-overhead. Huh? Didn't I just say they were super duper slow? Let me explain.</p>
+<p>It's not clear when exactly exceptions are slow. I had to do some research here. As it turns out, GCC's <code>libstdc++</code> uses a "zero-overhead" exception system, meaning that in the ideal normal case where C++ code calls zero exceptions, there is zero performance penalty. But when it does call an exception, it could be very slow depending on how the code is laid out. Most programmers, not knowing this, frequently use exceptions in their normal cases, and as a result, their programs are slow. Such mysterious behavior caught the attention of Programming Furus©️®️™️ and has made exceptions appear somewhat of a curse.</p>
+<p>This tragic curse turns out to be a heavenly blessing for Ultrassembler. In the normal case, all instructions are properly used and there's no issue. But if there's some error somewhere, say somebody put in the wrong register, then Ultrassembler sounds the alarm. Since such mistakes only occur as a result of human error (ex bugs in codegen and Ultrassembler itself) the timeframe to report the error can expand to that of a human. As a result, even if an exception triggered by a mistake took a full 1 second (around a million times slower than it does in reality), it doesn't matter because the person percepting the error message can only do so in approximately that second timeframe.</p>
+<p>"But hold on!" you exclaim. "What about std::expected?" In response to some programs which frequently need to handle errors not seen by humans, C++ added a system to reduce the overhead of calling errors, <code>std::expected</code>. I tried this in Ultrassembler and the results weren't pretty. It trades off exception speed for normal case speed. Since the normal case is the norm in Ultrassembler, <code>std::expected</code> incurred at least a 10% performance loss due to the way the <code>std::expected</code> object wraps two values (the payload and the error code) together. <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2022/p2544r0.html">See this C++ standard document for the juicy details.</a></p>
+<p>The end result of the use of exceptions is that there is zero performance penalty to optimize out.</p>
+<h1 id="data-structures">Data structures</h1>
+<p>Between all of the RISC-V instruction set extensions, there are 2000+ individual "instructions" (many instructions are identical to one another with a slight numerical change). There are also hundreds of CSRs and just under a hundred registers. This requires data structures large enough to store the properties of thousands of entries. How do you do that? It's tricky. So, how about I just show you what Ultrassembler uses as of this writing:</p>
+<pre data-lang="cpp" style="background-color:#2b303b;color:#c0c5ce;" class="language-cpp "><code class="language-cpp" data-lang="cpp"><span style="color:#b48ead;">struct </span><span>rvregister {
+</span><span>    RegisterType type;
+</span><span>    RegisterID id;
+</span><span>    uint8_t encoding;
+</span><span>    uint8_t padding;
+</span><span>};
+</span><span>
+</span><span style="color:#b48ead;">const</span><span> std::array&lt;rvregister, </span><span style="color:#d08770;">96</span><span>&gt; registers;
+</span><span>
+</span><span style="color:#b48ead;">struct </span><span>rvinstruction {
+</span><span>    RVInstructionID id;
+</span><span>    RVInstructionFormat type;
+</span><span>    uint8_t opcode;
+</span><span>    uint16_t funct;
+</span><span>    RVInSetMinReqs setreqs;
+</span><span>    rreq regreqs = reg_reqs::any_regs;
+</span><span>    special_snowflake_args ssargs = </span><span style="color:#bf616a;">special_snowflake_args</span><span>();
+</span><span>};
+</span><span>
+</span><span style="color:#b48ead;">namespace </span><span>ssarg {
+</span><span>
+</span><span style="color:#b48ead;">constexpr</span><span> ssflag get_imm_for_rs = </span><span style="color:#bf616a;">ssflag</span><span>(</span><span style="color:#d08770;">0b00000001</span><span>);
+</span><span style="color:#b48ead;">constexpr</span><span> ssflag use_frm_for_funct3 = </span><span style="color:#bf616a;">ssflag</span><span>(</span><span style="color:#d08770;">0b00000010</span><span>);
+</span><span style="color:#b48ead;">constexpr</span><span> ssflag special_handling = </span><span style="color:#bf616a;">ssflag</span><span>(</span><span style="color:#d08770;">0b00000100</span><span>);
+</span><span style="color:#b48ead;">constexpr</span><span> ssflag swap_rs1_rs2 = </span><span style="color:#bf616a;">ssflag</span><span>(</span><span style="color:#d08770;">0b00001000</span><span>);
+</span><span style="color:#b48ead;">constexpr</span><span> ssflag use_funct_for_imm = </span><span style="color:#bf616a;">ssflag</span><span>(</span><span style="color:#d08770;">0b00010000</span><span>);
+</span><span style="color:#b48ead;">constexpr</span><span> ssflag no_rs1 = </span><span style="color:#bf616a;">ssflag</span><span>(</span><span style="color:#d08770;">0b00100000</span><span>);
+</span><span style="color:#b48ead;">constexpr</span><span> ssflag has_custom_reg_val = </span><span style="color:#bf616a;">ssflag</span><span>(</span><span style="color:#d08770;">0b01000000</span><span>);
+</span><span>
+</span><span>} </span><span style="color:#65737e;">// namespace ssarg
+</span><span>
+</span><span style="color:#b48ead;">struct </span><span>special_snowflake_args {
+</span><span>    uint8_t custom_reg_val = </span><span style="color:#d08770;">0</span><span>;
+</span><span>    ssflag flags;
+</span><span>};
+</span><span>
+</span><span style="color:#b48ead;">const</span><span> std::array&lt;rvinstruction, </span><span style="color:#d08770;">2034</span><span>&gt; instructions;
+</span></code></pre>
+<p>Let's go over what each <code>struct</code> does.</p>
+<h2 id="rvregister"><code>rvregister</code></h2>
+<p><code>rvregister</code> is how Ultrassembler stores the data for all the RISC-V registers. What exactly describes a register? Well, you have its friendly name (like x0 or v20), an alias (like zero or fa1), what kind of register it is (integer, float, or vector?), and what raw encoding it looks like in instructions. You can get away with single bytes to represent the type and encoding. And, that's what we use here to keep data access simple. You could squeeze everything into one or two bytes, but after doing so, I couldn't find much of a speedup.</p>
+<p>So why not store the name and alias? Ultrassembler does not actually reference the name nor the alias anywhere in the code. Why? Strings are very expensive. This fact is not obvious if you have not made software at the level of Ultrassembler, where string comparisons grind computation to a crawl. So we just don't use strings anywhere. In spite of this, the initializers of <code>const std::array&lt;rvregister, 96&gt; registers</code> do contain both the name and alias. Such inclusion enables external scripts to look at the array and generate code around it, which will be in the next section. But for now, know that we hate strings.</p>
+<h2 id="rvinstruction"><code>rvinstruction</code></h2>
+
+
+
+        </div>
+    </body>
+</html>

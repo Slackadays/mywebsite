@@ -27,8 +27,8 @@
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="mm"
      inkscape:zoom="2.0810325"
-     inkscape:cx="68.475623"
-     inkscape:cy="197.49811"
+     inkscape:cx="132.86674"
+     inkscape:cy="197.49812"
      inkscape:window-width="2560"
      inkscape:window-height="1371"
      inkscape:window-x="2560"
@@ -43,7 +43,7 @@
      id="layer1"
      transform="translate(-54.416096,-72.724312)">
     <rect
-       style="fill:#ffffff;stroke-width:0.3"
+       style="fill:#ff8714;stroke-width:0.3;fill-opacity:1"
        id="rect1"
        width="97.643837"
        height="97.643837"
@@ -52,14 +52,14 @@
        ry="11.951199" />
     <text
        xml:space="preserve"
-       style="font-size:12.2295px;font-family:'Routed Gothic';-inkscape-font-specification:'Routed Gothic, Normal';text-align:center;writing-mode:lr-tb;direction:ltr;text-anchor:middle;fill:#ffffff;stroke-width:1.03998"
-       x="103.92593"
-       y="150.18036"
+       style="font-size:7.43879px;font-family:'Routed Gothic';-inkscape-font-specification:'Routed Gothic, Normal';text-align:center;writing-mode:lr-tb;direction:ltr;text-anchor:middle;fill:#ffffff;stroke-width:0.632587"
+       x="104.81802"
+       y="141.2562"
        id="text1"><tspan
          id="tspan1"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:88.0521px;font-family:'Shadows Into Light';-inkscape-font-specification:'Shadows Into Light, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke-width:1.03998"
-         x="103.92593"
-         y="150.18036"
-         sodipodi:role="line">J.H.</tspan></text>
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:53.5597px;font-family:Unbounded;-inkscape-font-specification:'Unbounded, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke-width:0.632587"
+         x="104.81802"
+         y="141.2562"
+         sodipodi:role="line">JH</tspan></text>
   </g>
 </svg>

@@ -14,25 +14,28 @@
 }
 
 html, body {
-  background-color: #e6d0be;
+  background-color: #ecd3b3;
   height: 100%;
   margin: 0;
 }
 
-a {
-  color: #000000;
-  text-decoration: none;
+body {
+  padding-bottom: 50%;
 }
 
-p a {
-  text-decoration: underline;
+a {
+  color: #000000;
+}
+
+div.header a, a#article {
+  text-decoration: none;
 }
 
 div.header {
   font-family: 'Shadows Into Light';
   font-size: 2em;
   padding: 0.5em;
-  background-color: #eed5c0;
+  background-color: #f7d9b4;
   display: flex;
   justify-content: space-between;
 }
@@ -40,7 +43,7 @@ div.header {
 div.nav {
   display: flex;
   justify-content: space-between;
-  gap: 1em;
+  gap: 1.2em;
   padding-right: 1em;
   float: right;
 }
@@ -63,14 +66,24 @@ div.article-title {
   margin-top: 50px;
 }
 
-p {
+p, ul {
   font-family: 'Outfit';
-  font-size: 1.5em;
+  font-size: 1.3em;
+}
+
+h3 {
+  font-family: 'Outfit';
+  font-size: 2em;
+}
+
+h2 {
+  font-family: 'Outfit';
+  font-size: 2.5em;
 }
 
 div.article-title-preview {
   font-family: 'Outfit';
-  font-size: 2.5em;
+  font-size: 1.5em;
   margin-top: 40px;
 }
 
@@ -78,6 +91,10 @@ div.article-date {
   font-family: 'Shadows Into Light';
   font-size: 2em;
   margin-top: -10px;
+}
+
+a div.article-date {
+  font-size: 1.5em;
 }
 
 div.detail {
@@ -90,6 +107,25 @@ pre {
   font-size: 1.4em;
   border-radius: 5px;
   padding: 10px;
+  background-color: #101010 !important;
+  overflow-x: auto;
+}
+
+blockquote p:before, blockquote p:after {
+  content: "\"";
+}
+
+blockquote p {
+  font-family: 'Shadows Into Light';
+  font-size: 1.7em;
+}
+
+span.warning {
+  font-family: 'Shadows Into Light';
+  font-size: 2em;
+  color: #ff0000;
+  text-shadow: 0 0 20px #ff0000, 0 0 30px #ff0000;
+  font-weight: bold;
 }
 
 @media screen and (max-width: 990px) {
@@ -113,10 +149,6 @@ pre {
     text-align: center;
   }
 
-  div.article-title-preview {
-    font-size: 1.5em;
-  }
-
   div.article-date {
     margin-top: 0;
     font-size: 1.5em;
@@ -131,7 +163,7 @@ pre {
     font-size: 2.3em;
   }
 
-  p {
+  p, ul {
     margin-top: 20px;
     font-size: 1.2em;
   }

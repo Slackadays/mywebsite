@@ -1,0 +1,283 @@
++++
+title = "How is Ultrassembler so fast?"
+date = 2025-08-15
++++
+
+[Ultrassembler](https://github.com/Slackadays/Chata/tree/main/ultrassembler) is a superfast and complete RISC-V assembler library that I'm writing as a component of the bigger [Chata signal processing](https://github.com/Slackadays/Chata) project. 
+
+"Why would you want to do this?" you might ask. First, existing RISC-V assemblers that conform the the entirety of the specification, `as` and `llvm-mc`, ship as binaries that you run as standalone programs. This is normally not an issue. However, in Chata's case, it needs to access a RISC-V assembler from within its C++ code. The usual way to accomplish this task is to use some ugly C function like `system()` to run external software as if it were a human or script running it from a command line. 
+
+Here's an example of what I'm talking about:
+
+```cpp
+#include <iostream>
+#include <string>
+#include <stdlib.h>
+
+int main() {
+    std::string command = "riscv64-linux-gnu-as code.s -o code.bin";
+
+    int res = std::system(command.data());
+
+    if (res != 0) {
+        std::cerr << "Error executing command: " << command << std::endl;
+    }
+    return res;
+}
+```
+
+It gets even uglier once you realize you need temporary files and possibly have to artisanally craft the command beforehand. Additionally, invoking the assembler in this manner incurs a significant performance overhead on embedded systems which lack processing power. There has GOT to be a better way. Enter Ultrassembler.
+
+With these two goals of speed and quality in mind, I wrote Ultrassembler as a completely standalone library with GNU `as` as the performance and standard conformity benchmark. The results are nothing short of staggering. After months of peformance optimization, Ultrassembler can assemble a test file with about 16 thousand RISC-V instructions over 10 times faster than `as`, and around 20 times faster than `llvm-mc`. 
+
+Such performance ensures a good user experience on the platforms where Chata runs, but also as a consequence of this lack of overhead, you could also combine Ultrassembler with fantastic libraries like [libriscv](https://github.com/libriscv/libriscv) to implement low-to-no-cost RISC-V scripting in things like games, or maybe even in your JIT programming language!
+
+So let's look at how exactly I made it this fast so you can reap the benefits too.
+
+<span class="warning">WARNING!</span> &nbsp; The code you're about to see here is only current as of this article's publishing. The actual code Ultrassembler uses could be different by the time you read this in the future!
+
+# Exceptions
+
+Exceptions, C++'s first way of handling errors, are slow. Super duper slow. So slow, in fact, that many Programming Furus©️®️™️ say you should never ever use them. They'll infect your code with their slowness and transform you into a slow old hunchback in no time. 
+
+Or so you would think.
+
+C++ exceptions, despite being so derided, are in fact zero-overhead. Huh? Didn't I just say they were super duper slow? Let me explain.
+
+It's not clear when exactly exceptions are slow. I had to do some research here. As it turns out, GCC's `libstdc++` uses a "zero-overhead" exception system, meaning that in the ideal normal case where C++ code calls zero exceptions, there is zero performance penalty. But when it does call an exception, it could be very slow depending on how the code is laid out. Most programmers, not knowing this, frequently use exceptions in their normal cases, and as a result, their programs are slow. Such mysterious behavior caught the attention of Programming Furus©️®️™️ and has made exceptions appear somewhat of a curse.
+
+This tragic curse turns out to be a heavenly blessing for Ultrassembler. In the normal case, all instructions are properly used and there's no issue. But if there's some error somewhere, say somebody put in the wrong register, then Ultrassembler sounds the alarm. Since such mistakes only occur as a result of human error (ex bugs in codegen and Ultrassembler itself) the timeframe to report the error can expand to that of a human. As a result, even if an exception triggered by a mistake took a full 1 second (around a million times slower than it does in reality), it doesn't matter because the person percepting the error message can only do so in approximately that second timeframe.
+
+"But hold on!" you exclaim. "What about std::expected?" In response to some programs which frequently need to handle errors not seen by humans, C++ added a system to reduce the overhead of calling errors, `std::expected`. I tried this in Ultrassembler and the results weren't pretty. It trades off exception speed for normal case speed. Since the normal case is the norm in Ultrassembler, `std::expected` incurred at least a 10% performance loss due to the way the `std::expected` object wraps two values (the payload and the error code) together. [See this C++ standard document for the juicy details.](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2022/p2544r0.html)
+
+The end result of the use of exceptions is that there is zero performance penalty to optimize out.
+
+# Data structures
+
+Between all of the RISC-V instruction set extensions, there are 2000+ individual "instructions" (many instructions are identical to one another with a slight numerical change). There are also hundreds of CSRs and just under a hundred registers. This requires data structures large enough to store the properties of thousands of entries. How do you do that? It's tricky. So, how about I just show you what Ultrassembler uses as of this writing:
+
+```cpp
+struct rvregister {
+    RegisterType type; //1b
+    RegisterID id; //1b
+    uint8_t encoding;
+    uint8_t padding;
+};
+
+const std::array<rvregister, 96> registers;
+
+struct rvinstruction {
+    RVInstructionID id; //2b
+    RVInstructionFormat type; //1b
+    uint8_t opcode;
+    uint16_t funct;
+    RVInSetMinReqs setreqs; //1b
+    rreq regreqs = reg_reqs::any_regs; //1b
+    special_snowflake_args ssargs = special_snowflake_args(); //2b
+};
+
+// We use a strong typedef to define both rreq and ssflag, but the underlying is a uint8_t in both cases
+
+namespace ssarg {
+
+constexpr ssflag get_imm_for_rs = ssflag(0b00000001);
+constexpr ssflag use_frm_for_funct3 = ssflag(0b00000010);
+constexpr ssflag special_handling = ssflag(0b00000100);
+constexpr ssflag swap_rs1_rs2 = ssflag(0b00001000);
+constexpr ssflag use_funct_for_imm = ssflag(0b00010000);
+constexpr ssflag no_rs1 = ssflag(0b00100000);
+constexpr ssflag has_custom_reg_val = ssflag(0b01000000);
+
+}
+
+struct special_snowflake_args {
+    uint8_t custom_reg_val = 0;
+    ssflag flags; //1b
+};
+
+const std::array<rvinstruction, 2034> instructions;
+```
+
+Let's go over what each `struct` does.
+
+## `rvregister`
+
+`rvregister` is how Ultrassembler stores the data for all the RISC-V registers. What describes a register? You have its friendly name (like x0 or v20), an alias (like zero or fa1), what kind of register it is (integer, float, or vector?), and what raw encoding it looks like in instructions. You can get away with single bytes to represent the type and encoding. And, that's what we use here to keep data access simple. You could squeeze everything into one or two bytes, but after doing so, I couldn't find much of a speedup.
+
+So why not store the name and alias? Ultrassembler does not actually reference the name nor the alias anywhere in its code. Why? Strings are very expensive. This fact is not obvious if you have not made software at the level of Ultrassembler, where string comparisons grind computation to a crawl. So we just don't use strings anywhere. In spite of this, the initializers of `const std::array<rvregister, 96> registers` do contain both the name and alias. Such inclusion enables external scripts to look at the array and generate code around it, which will be in the next section. But for now, know that we hate strings.
+
+## `rvinstruction`
+
+`rvinstruction` follows a similar idea, with the biggest differences being that it's much bigger, 2000+ entries versus 96, and there is more information to store per entry. This necessitates some extra memory saving magic because there are so many different instructions. We first need an ID for each instruction to do specific checks if needed. We have almost more than 2048 instructions (subject to future expansion) but less than 4196, so we'll need 2 bytes. There are fewer than 256 "types" of instructions (R, I, S, B, U, J, etc), so 1 byte is good. Same idea with all the other 
+
+# Memory pools
+
+In C++, by default, containers that dynamically allocate memory do so through the heap. The underlying OS provides the heap through assignment of a certain section of its virtual memory to the program requesting the heap memory. Heap allocation happens transparently most of the time. Unfortunately for us, it matters where exactly that memory is. Memory located far away from everything else (often the case with heap memory) unnecessarily clogs up the CPU's memory cache. Additionally, in C++, requesting that heap memory also requires a syscall every time the container geometrically changes size (roughly speaking, 1B -> 2B -> 4B -> 8B -> ... -> 1MB). Syscalls drastically slow down code execution because the OS needs to save all the registers, swap in the kernel's, and run the kernel code, all while clogging up the CPU cache again. Therefore, we need a way to allocate memory close to our variables with zero syscalls. 
+
+The solution? Memory pools.
+
+C++ offers a totally neato way to use the containers you know and love with a custom crafted memory allocator of your choice. 
+
+Here's how Ultrassembler does it.
+
+```cpp
+constexpr size_t memory_pool_size = 33554432;
+
+template <class T>
+class MemoryBank;
+
+typedef std::basic_string<char, std::char_traits<char>, MemoryBank<char>> ultrastring;
+
+template <typename T>
+using ultravector = std::vector<T, MemoryBank<T>>;
+
+class GlobalMemoryBank {
+    inline static std::array<std::byte, memory_pool_size> pool;
+    inline static size_t used = 0; 
+    inline static long pagesize = sysconf(_SC_PAGE_SIZE);
+
+public:
+    void* grab_some_memory(size_t requested);
+
+    void reset();
+};
+
+extern GlobalMemoryBank memory_bank;
+
+template <class T>
+class MemoryBank {
+public:
+    using value_type = T;
+
+    MemoryBank() = default;
+
+    [[nodiscard]] T* allocate(size_t requested) {
+        std::size_t bytes = requested * sizeof(T);
+        return reinterpret_cast<T*>(memory_bank.grab_some_memory(bytes));
+    }
+
+    void deallocate(T* ptr, size_t requested) { return; }
+
+    bool operator==(const MemoryBank&) const { return true; }
+};
+
+// In another file...
+
+void* GlobalMemoryBank::grab_some_memory(size_t requested) {
+    // DBG(std::cout << "Allocating " << requested << " bytes, " << used << " used" << std::endl;)
+    if (requested + used > pool.size()) {
+        throw UASError(OutOfMemory, "Out of memory!");
+    }
+    void* ptr = reinterpret_cast<void*>(pool.data() + used);
+    used += requested;
+    return ptr;
+}
+
+void GlobalMemoryBank::reset() {
+    DBG(std::cout << "Resetting memory bank, used " << used << " bytes" << std::endl;)
+    used = 0;
+}
+```
+
+Let's go through this section by section.
+
+```cpp
+constexpr size_t memory_pool_size = 33554432;
+
+template <class T>
+class MemoryBank;
+
+typedef std::basic_string<char, std::char_traits<char>, MemoryBank<char>> ultrastring;
+
+template <typename T>
+using ultravector = std::vector<T, MemoryBank<T>>;
+```
+
+This is boilerplate defining _how big our memory pool is_ (in bytes), declaring _the regular memory pool class_ (annoying!), what our _special memory pool string_ is an alias of (a standard string but with the regular memory pool allocator), and the same creation of _a vector using the regular memory pool_.
+
+```cpp
+class GlobalMemoryBank {
+    inline static std::array<std::byte, memory_pool_size> pool;
+    inline static size_t used = 0;
+    inline static long pagesize = sysconf(_SC_PAGE_SIZE);
+
+public:
+    void* grab_some_memory(size_t requested);
+
+    void reset();
+};
+
+extern GlobalMemoryBank memory_bank;
+```
+
+This class defines the _memory pool wrapper_ that the actual allocator uses. Why? This has to do with how C++ uses custom allocators. When you use a container with a custom allocator, each declaration of that container creates a separate instance of that container _and the allocator class_. Therefore, if you added the memory pool array as a member of this custom allocator class, each declaration of the container would result in separate instantiations of the underlying memory pool object. This is UNACCEPTABLE for Ultrassembler. Therefore, we instead use a helper class that the allocators call to. As a consequence, it allows us to add memory pool functionality controlled independently of the containers through calls to the helper `GlobalMemoryBank` class in the future.
+
+```cpp
+template <class T>
+class MemoryBank {
+public:
+    using value_type = T;
+
+    MemoryBank() = default;
+
+    [[nodiscard]] T* allocate(size_t requested) {
+        std::size_t bytes = requested * sizeof(T);
+        return reinterpret_cast<T*>(memory_bank.grab_some_memory(bytes));
+    }
+
+    void deallocate(T* ptr, size_t requested) { return; }
+
+    bool operator==(const MemoryBank&) const { return true; }
+};
+```
+
+This is the actual _custom allocator_ object that we pass to C++ containers. The definition of a custom allocator in C++ is simply a class that provides the `allocate` and `deallocate` functions publicly. That's literally it. There are in fact more potential functions that you could add to handle specific uses, but `allocate` and `deallocate` are all we need for Ultrassembler. We define this class as a template because the return value of the `allocate` function must match the underlying type of the container using the allocator class. We furthermore define the `==` operator because C++ requires that two objects using allocators match their allocators. You'll normally never notice this because the default allocator for all C++ containers, `std::allocator`, provides all the allocator functions and operator comparison functions, and as a result, handles all comparisons transparently. Ultrassembler only uses equality. Finally, we provide a default constructor `MemoryBank() = default;` as this is what the C++ standard expects too from allocator classes.
+
+```cpp
+void* GlobalMemoryBank::grab_some_memory(size_t requested) {
+    // DBG(std::cout << "Allocating " << requested << " bytes, " << used << " used" << std::endl;)
+    if (requested + used > pool.size()) {
+        throw UASError(OutOfMemory, "Out of memory!");
+    }
+    void* ptr = reinterpret_cast<void*>(pool.data() + used);
+    used += requested;
+    return ptr;
+}
+
+void GlobalMemoryBank::reset() {
+    DBG(std::cout << "Resetting memory bank, used " << used << " bytes" << std::endl;)
+    used = 0;
+}
+```
+
+These functions implement _allocating the memory_ and _resetting the memory bank_. Allocating should be obvious. However, resetting might not. As it stands, the memory pool simply gives up if it runs out of memory to allocate. We don't deallocate because such an operation would add extra overhead and subjects us to the issue of memory fragementation. Memory fragmentation is when you deallocate a small object from a large area of allocated memory, leaving a small area of unallocated memory laying in the otherwise allocated area. If you want to allocate a new object, tough luck, you probably can't fit it in this small area. You need to wait for the other objects to deallocate first. This cycle continues until your memory usage looks like Swiss cheese and doesn't support allocating any more objects, leading to a system crash. Normally, the OS kernel handles this problem transparently. Linux for example uses a "buddy allocator" to help deal with it. Memory fragmentation is also less of an issue with huge swaths of memory on modern systems. Our memory pool unfortunately lacks those luxuries of large memory and processing power for buddy allocators. Therefore, we provide the `reset` function to start everything over if the software using Ultrassembler receives an `OutOfMemory` exception.
+
+Our memory pool trick lets Ultrassembler enjoy optimal memory locality and predefined memory usage while also completely eliminating syscalls and memory leaks, notwithstanding occasional memory bank resets.
+
+# Value speculation
+
+A while ago, I read [this article on something called L1 value speculation](https://mazzo.li/posts/value-speculation.html). The basic idea is to free the branch predictor by giving it extra work to do guessing the next value in the linked list. If it's right (usually it is) then you get a free speedup.
+
+Ultrassembler does something similar. Instead of a linked list, we iterate through an array checking for specific combinations of characters that define the end of a sequence to copy. 
+
+```cpp
+auto ch = [&]() {
+    DBG(return data.at(i);)
+    return data[i];
+};
+
+volatile char preview;
+while (i < data.size() && not_at_end(ch()) && !is_whitespace(ch())) {
+    c.inst.push_back(ch());
+    i++;
+    preview = ch();
+}
+```
+
+As built-in strings in C++ are super duper mega slow even with custom allocators, we spend a lot of time on `c.inst.push_back(ch());`. There's fortunately a workaround. If the CPU knows that we'll be accessing the next character in the target string, why not queue it up first? This is exactly what `volatile char preview;` and `preview = ch();` accomplish. We already have an opportunity for speculation with the `i++;` and `i < data.size();`. Although I'm not 100% sure, my hypothesis on why `preview` provides a speedup is that the branch predictor can only handle `i < data.size()` and not additionally the character loading of `ch()`. Therefore, we should preemptively load `ch()` during `c.inst.push_back(ch());`. Eagle eyed readers will notice how there is an opportunity for memory overflow if we ae at the end of a string and `i++;` then `preview = ch();` load 
+
+# (Super) smart searches
+
+Here's a trick I haven't seen anywhere else.
+
+Imagine I provided you three words: apple, apricot, and banana. Now, what if I told you the word I was looking for had 

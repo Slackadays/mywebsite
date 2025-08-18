@@ -16,3 +16,7 @@ div.header {
 a {
     color: #ffffff;
 }
+
+pre {
+    background-color: #000000 !important;
+}

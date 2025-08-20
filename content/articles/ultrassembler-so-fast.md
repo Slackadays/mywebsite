@@ -274,10 +274,53 @@ while (i < data.size() && not_at_end(ch()) && !is_whitespace(ch())) {
 }
 ```
 
-As built-in strings in C++ are super duper mega slow even with custom allocators, we spend a lot of time on `c.inst.push_back(ch());`. There's fortunately a workaround. If the CPU knows that we'll be accessing the next character in the target string, why not queue it up first? This is exactly what `volatile char preview;` and `preview = ch();` accomplish. We already have an opportunity for speculation with the `i++;` and `i < data.size();`. Although I'm not 100% sure, my hypothesis on why `preview` provides a speedup is that the branch predictor can only handle `i < data.size()` and not additionally the character loading of `ch()`. Therefore, we should preemptively load `ch()` during `c.inst.push_back(ch());`. Eagle eyed readers will notice how there is an opportunity for memory overflow if we ae at the end of a string and `i++;` then `preview = ch();` load 
+As built-in strings in C++ are super duper mega slow even with custom allocators, we spend a lot of time on `c.inst.push_back(ch());`. There's fortunately a workaround. If the CPU knows that we'll be accessing the next character in the target string, why not queue it up first? This is exactly what `volatile char preview;` and `preview = ch();` accomplish. We already have an opportunity for speculation with the `i++;` and `i < data.size();`. Although I'm not 100% sure, my hypothesis on why `preview` provides a speedup is that the branch predictor can only handle `i < data.size()` and not additionally the character loading of `ch()`. Therefore, we should preemptively load `ch()` during `c.inst.push_back(ch());`. 
+
+Eagle eyed readers will notice how there is an opportunity for memory overflow if we are at the end of a string and `i++;` then `preview = ch();` loads a character past the string `data`. However, Ultrassembler accounts for this by adding an extra null character to the input string `data` earlier in the code, so it's impossible to perform an illegal memory access. 
+
+This optimization sped up parsing of the instruction names enough that the overall performance increased by about 10%.
 
 # (Super) smart searches
 
 Here's a trick I haven't seen anywhere else.
 
-Imagine I provided you three words: apple, apricot, and banana. Now, what if I told you the word I was looking for had 
+Imagine I provided you these words: apple, apricot, avocado, and banana. Now, what if I told you a mystery word I was looking for among the ones I provided was 7 letters long. You would immediately discard "apple" and "banana" because they're not 7 letters long. Now, I tell you that it starts with "a." You wouldn't discard any at this point because both "apricot" and "avocado" start with the letter a. Finally, I tell you that the second letter is "v." Immediately we know "avocado" is the mystery word because no other word remaining starts with "av."
+
+This is the basic idea behind the instruction, register, CSR, and pseudoinstruction lookup systems in Ultrassembler. There's a rub, though. The code for these lookups looks something like this:
+
+```cpp
+const uint16_t fast_instr_search(const ultrastring& inst) {
+    const auto size = inst.size();
+
+    if (size == 2) {
+        if (inst[0] == 's') {
+            if (inst[1] == 'd') return 44;
+            if (inst[1] == 'w') return 17;
+            if (inst[1] == 'b') return 15;
+            if (inst[1] == 'h') return 16;
+        }
+        if (inst[0] == 'o') {
+            if (inst[1] == 'r') return 35;
+        }
+        if (inst[0] == 'l') {
+            if (inst[1] == 'd') return 43;
+            if (inst[1] == 'w') return 12;
+            if (inst[1] == 'b') return 10;
+            if (inst[1] == 'h') return 11;
+        }
+    }
+
+    if (size == 3) {
+        etc...
+```
+
+Clearly, there's a lot of work to do if you've got thousands of entries like the instructions array does. There's a fix for that though! 
+
+Enter codegen. 
+
+I wrote some Python scripts to go through the listings and extract the string names for each instruction, register, CSR, and pseudoinstruction. Then, we generate C++ code which performs these precomputed lookups. 
+
+There are no other instances of this that I know of. That's surprising, because codegen allows Ultrassembler to perform lookup of thousands of instructions with near-zero overhead. I estimate each instruction lookup takes on the order of 10 instructions to complete.
+
+
+

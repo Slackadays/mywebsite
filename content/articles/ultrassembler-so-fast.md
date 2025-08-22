@@ -318,9 +318,37 @@ Clearly, there's a lot of work to do if you've got thousands of entries like the
 
 Enter codegen. 
 
-I wrote some Python scripts to go through the listings and extract the string names for each instruction, register, CSR, and pseudoinstruction. Then, we generate C++ code which performs these precomputed lookups. 
+Ultrassembler uses Python scripts to go through the listings and extract the string names for each instruction, register, CSR, and pseudoinstruction. Then, they generate C++ code which performs these precomputed lookups. 
 
-There are no other instances of this that I know of. That's surprising, because codegen allows Ultrassembler to perform lookup of thousands of instructions with near-zero overhead. I estimate each instruction lookup takes on the order of 10 instructions to complete.
+There are no other instances of this that I know of. That's surprising, because codegen allows us to perform lookup of thousands of instructions with near-zero overhead. I estimate each instruction lookup takes on the order of 10 instructions to complete.
 
+# Fast string comparisons
 
+For the times where we can't or don't want to use a precomputed string search, Ultrassembler uses an optimized string comparison function to minimize overhead.
 
+```cpp
+bool fast_eq(const auto& first, const std::string_view& second) {
+    // First make sure the sizes are equal because no two strings 
+    // can ever be the same if they have different sizes. 
+    // Also, this lets us save on future bound checks because we're already checking it here.
+    if (first.size() != second.size()) { 
+        return false;
+    }
+    for (size_t i = 0; i < first.size(); i++) {
+        if (first[i] != second[i]) {
+            [[likely]] return false;
+        } else {
+            [[unlikely]] continue;
+        }
+    }
+    return true;
+}
+```
+
+How does this work? First, we check to make sure the input strings are the same length. It's impossible by definition for them to be the same if they have different lengths. Then, we compare them character by character. Here, we use C++20's `[[likely]]` and `[[unlikely]]` tags to help the compiler optimize the positioning of each comparison. It's statistically more likely to have a comparison failure than a success because we are usually comparing one input string against many possible options but it can only match with up to one.
+
+# Other small optimizations
+
+Here's a few more that aren't quite significant enough for their own sections but deserve a mention.
+
+## 

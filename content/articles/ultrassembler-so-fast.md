@@ -649,3 +649,11 @@ struct assembly_context {
 We order them in descending memory size, from 32 bytes for `ultrastring` to 2 for `uint16_t`. This packs the members the most efficient way possible for memory usage.
 
 Also, these variables are not in the global scope or a namespace because holding them all in a struct enables multithreaded operation. It would be possible to add `thread_local` to each one to enable multithreading easily, but in testing, this added enormous overhead compared to a plain old struct.
+
+# Conclusion
+
+Congrats if you read all the way here!
+
+Hopefully you've learned something new and/or useful. Although I've crafted the optimizations here for Ultrassembler, there's nothing stopping you from applying the same underlying principles to your own code. 
+
+Check out Ultrassembler: [https://github.com/Slackadays/Chata/tree/main/ultrassembler](https://github.com/Slackadays/Chata/tree/main/ultrassembler)

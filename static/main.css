@@ -68,7 +68,7 @@ div.article-title {
 
 p, ul {
   font-family: 'Outfit';
-  font-size: 1.3em;
+  font-size: 1.2em;
 }
 
 h3 {
@@ -104,11 +104,14 @@ div.detail {
 
 pre {
   font-family: 'Google Sans Code';
-  font-size: 1.4em;
+  font-size: 1.2em;
   border-radius: 5px;
   padding: 10px;
   background-color: #101010 !important;
   overflow-x: auto;
+  width: 40vw;
+  left: calc(-20vw + 50%);
+  position: relative;
 }
 
 blockquote p:before, blockquote p:after {
@@ -173,7 +176,10 @@ span.warning {
   }
 
   pre {
-    font-size: 1.3em;
+    font-size: 1.2em;
     padding: 5px;
+    width: 100%;
+    left: 0;
+    margin-left: -5px;
   }
 }

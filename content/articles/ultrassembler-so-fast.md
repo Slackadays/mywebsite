@@ -347,8 +347,235 @@ bool fast_eq(const auto& first, const std::string_view& second) {
 
 How does this work? First, we check to make sure the input strings are the same length. It's impossible by definition for them to be the same if they have different lengths. Then, we compare them character by character. Here, we use C++20's `[[likely]]` and `[[unlikely]]` tags to help the compiler optimize the positioning of each comparison. It's statistically more likely to have a comparison failure than a success because we are usually comparing one input string against many possible options but it can only match with up to one.
 
-# Other small optimizations
+# Reference bigger-than-fundamental objects in function arguments
+
+This one surprised me.
+
+When you call a C++ function, you can choose to pass your arguments _by value_, or _by reference_. By default, C++ uses _by value_, which means the code internally makes a copy of the argument and provides that copy to the function. If you add a `&` to make it a reference instead (there are other ways to do this too) then the code generates a pointer to that original object and passes that pointer to the function. However, unlike pointers, references handle referencing and dereferencing transparently. As an aside, this also means Ultrassembler technically doesn't use pointers... anywhere!
+
+One of the most common pieces of C++ optimization advice is to use references whenever possible to avoid the copy overhead incurred by value references. It might surprise you, then, to find out that the following code is vastly faster due to the use of a value argument:
+
+```cpp
+size_t parse_this_line(size_t i, const ultrastring& data, assembly_context& c) {
+    // code that does "i++;" a lot
+}
+
+// later, in a different function:
+for (size_t i = 0; i < data.size();) {
+    i = parse_this_line(i, data, c);
+    // etc...
+}
+```
+
+If we had applied the Programming Furus©️®️™️'s advice to pass `i` by reference, it would have looked like:
+
+```cpp
+void parse_this_line(size_t& i, const ultrastring& data, assembly_context& c) {
+    // code that does "i++;" a lot
+}
+
+// later, in a different function:
+for (size_t i = 0; i < data.size();) {
+    parse_this_line(i, data, c);
+    // etc...
+}
+```
+
+So why is the first one faster? Here's why.
+
+Under the hood of all programming languages, you have assembly code which translates to the CPU's machine code. There are also no variables. Instead, you've got registers which hold raw data and raw memory. In most application processors today, the registers are 64 bits wide, and maybe wider for special vector operations which don't matter here. 64 bits happens to match the maximum width of so-called _fundamental types_ in C and C++ which are integers and most common floats. Therefore, we can fit at least one fundamental type into each register.
+
+Assembly also has little concept of a function call. Internally, all function calls do is clear out the current registers, load them with the function parameters, then jump to the function's address. This means all function calls involve at least one copy per argument, whether it's a fundamental type or a pointer to a fundamental type or a pointer to something else.
+
+```
+# Here's what this looks like in RISC-V assembly.
+# Say we have a number in register t0, like 69.
+
+addi t0, x0, 69
+
+# We also have a function foobar that takes a single integer argument (like "void foobar(size_t arg)" in C/C++)
+# We can copy that register (and therefore its value) to argument register a0 before calling foobar
+
+addi a0, t0, 0
+
+jal foobar
+
+# The copying of this value only took one step!
+```
+
+You can see where we're going. If our goal is to minimize copying, it would be better to copy a fundamental type once than to generate a pointer, copy that, then dereference that pointer to get the underlying value. That is the crux of this subtle optimization trick. The cost to copy one register is less than the cost to copy a register holding a pointer. 
+
+Note how I've only talked about fundamental types. Any type which does not fit in a single register, AKA many structs, containers, or anything else that isn't a fundamental type, costs more to copy by value in multiple registers than it does to copy a single register holding a pointer. I don't know of any Programming Furu©️®️™️ that makes this distinction clear.
+
+# More optimizations
 
 Here's a few more that aren't quite significant enough for their own sections but deserve a mention.
 
-## 
+## Memory padding
+
+There are a few strings which Ultrassembler frequently reads and writes. To insure against runtime memory pool allocation overhead, we preemptively allocate a good amount of memory.
+
+```cpp
+c.inst.reserve(32);
+c.arg1.reserve(32);
+c.arg2.reserve(32);
+c.arg3.reserve(32);
+c.arg4.reserve(32);
+c.arg5.reserve(32);
+c.arg6.reserve(32);
+c.arg_extra.reserve(32);
+c.machine_code.reserve(128000);
+```
+
+## Inline some functions
+
+Sometimes, functions are faster when you mark them `inline` to suggest that the code have a copy for each invocation. This tends to work better for smaller functions.
+
+```cpp
+inline const uint8_t decode_encoding_length(const uint8_t opcode) {
+    if ((opcode & 0b11) != 0b11) {
+        return 2;
+    } else {
+        return 4;
+    }
+}
+```
+
+Try it and see what works best for your own code.
+
+## Minimize string stripping copies
+
+Here's a special case of minimizing string copying. This function removes the parentheses and optionally the number 0 from a string like "0(t4)":
+
+```cpp
+void remove_extraneous_parentheses(ultrastring& str) {
+    if (str.back() == ')') {
+        str.pop_back();
+    }
+    if (str.front() == '0') {
+        str.erase(0, 1);
+    }
+    if (str.front() == '(') {
+        str.erase(0, 1);
+    }
+}
+```
+
+Why do we tackle the last character first? When you erase one or more characters from a string, C++ internally copies every individual character after setting the characters to erase to blank. In other words, it looks a little like this:
+
+```
+# Erase "foo" from "foobar"
+
+foobar
+
+ oobar
+
+  obar
+
+   bar
+
+b  bar
+
+ba bar
+
+barbar
+
+barba
+
+barb
+
+bar
+```
+
+That's a lot of copies. So it would be great if we can avoid copying more of these characters in the future.
+
+Then, we handle the case where the input string is like "(t4)" where there is no 0 at the beginning. Finally is the removal of the front parenthesis. 
+
+## Call small lambda functions frequently
+
+These three lambda functions both help make parsing faster and simplify the code:
+
+```cpp
+auto is_whitespace = [](const char& c) {
+    return c == '\t' || c == ' ';
+};
+auto ch = [&]() {
+    DBG(return data.at(i);)
+    return data[i];
+};
+auto not_at_end = [](const char& c) {
+    return c != '\n' && c != '#';
+};
+```
+
+Why do they work? The simplification part is obvious, but maybe not for speed. One reason might be because the compiler now knows how often we do the same comparisons over and over. If it knows we do the same thing many times, it can optimize with that known fact.
+
+Also note how the first and last functions violate the earlier optimization trick regarding passing fundamental types by value. That trick does not apply to lambda functions, where they could be inline and incur zero function call overhead. Passing by reference enables the zero function call overhead optimization.
+
+## Strip out the compilation junk
+
+By default, C++ compilers like GCC and Clang add in a lot of junk that we can safely strip out. Here's how we do it in CMake:
+
+```cmake
+target_compile_options(objultra PRIVATE -fno-rtti -fno-stack-protector -fomit-frame-pointer)
+```
+
+### -fno-rtti
+
+RTTI is runtime type identification. Only some software uses this feature but it adds nonzero overhead to all. Therefore, we disable it to eliminate that overhead.
+
+### -fno-stack-protector
+
+The stack protector is a feature that many Programming Furus©️®️™️ peddle to improve security. However, it adds considerable overhead, and does nothing for security outside of a specific attack. Therefore, we disable it to eliminate that overhead.
+
+### -fomit-frame-pointer
+
+The frame pointer is a specific feature on some CPU platforms. However, it's not actually needed anymore for modern CPUs, and it adds overhead. Therefore, we disable it to eliminate that overhead.
+
+## Link-time optimization
+
+Link-time optimization, or LTO, is a more intelligent way for the compiler to optimize your code than regular optimization passes. It can enable some serious speedups if your code benefits from function inlining or has code across many files. It's been supported for a while now but isn't enabled by default. Here's how to enable it in CMake:
+
+```cmake
+include(CheckIPOSupported)
+check_ipo_supported(RESULT lto_supported)
+if(lto_supported AND NOT NO_LTO)
+  set_property(TARGET ${this_target} PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+  if(CMAKE_COMPILER_IS_GNUCXX)
+    list(APPEND CMAKE_CXX_COMPILE_OPTIONS_IPO "-flto=auto") # set the thread amount to what is available on the CPU
+  endif()
+endif()
+```
+
+This has been nothing but a benefit for Ultrassembler.
+
+## Make structs memory-friendly
+
+This struct holds variables that most of the Ultrassembler code uses:
+
+```cpp
+struct assembly_context {
+    ultrastring inst;
+    ultrastring arg1;
+    ultrastring arg2;
+    ultrastring arg3;
+    ultrastring arg4;
+    ultrastring arg5;
+    ultrastring arg6;
+    ultrastring arg_extra;
+    ultravector<uint8_t> machine_code;
+    ultravector<RVInstructionSet> supported_sets;
+    ultravector<std::pair<ultrastring, int>> labels;
+    ultravector<label_loc> label_locs;
+    ultravector<std::pair<ultrastring, ultrastring>> constants;
+    ultravector<directive_options> options;
+    int32_t custom_inst = 0;
+    uint32_t line = 1;
+    uint32_t column = 0;
+    uint16_t inst_offset = 0;
+};
+```
+
+We order them in descending memory size, from 32 bytes for `ultrastring` to 2 for `uint16_t`. This packs the members the most efficient way possible for memory usage.
+
+Also, these variables are not in the global scope or a namespace because holding them all in a struct enables multithreaded operation. It would be possible to add `thread_local` to each one to enable multithreading easily, but in testing, this added enormous overhead compared to a plain old struct.

@@ -407,6 +407,76 @@ You can see where we're going. If our goal is to minimize copying, it would be b
 
 Note how I've only talked about fundamental types. Any type which does not fit in a single register, AKA many structs, containers, or anything else that isn't a fundamental type, costs more to copy by value in multiple registers than it does to copy a single register holding a pointer. I don't know of any Programming Furu©️®️™️ that makes this distinction clear.
 
+# Don't do insertions or deletions
+
+One of the steps to assemble a jump operation in RISC-V assembly is to calculate the offset of bytes to the jump target. However, this is often impossible unless all other instructions are already assembled. Ultrassembler avoids insertions or deletions through a clever trick to assemble jump instructions with a placeholder jump offset and then insert the correct offset in-place at the end.
+
+Here's how it works:
+
+```cpp
+void solve_label_offsets(assembly_context& c) {
+    using enum RVInstructionFormat;
+    for (size_t i = 0; i < c.label_locs.size(); i++) {
+        if (!c.label_locs.at(i).is_dest) {
+            for (size_t j = 0; j < c.label_locs.size(); j++) {
+                if (c.label_locs.at(j).is_dest && c.label_locs.at(j).id == c.label_locs.at(i).id) {
+                    uint32_t inst = 0;
+
+                    if (c.label_locs.at(i).i_bytes == 2) {
+                        inst = reinterpret_cast<uint16_t&>(c.machine_code.at(c.label_locs.at(i).loc));
+                    } else if (c.label_locs.at(i).i_bytes == 4) {
+                        inst = reinterpret_cast<uint32_t&>(c.machine_code.at(c.label_locs.at(i).loc));
+                    }
+
+                    int32_t offset = c.label_locs.at(j).loc - c.label_locs.at(i).loc;
+
+                    if (c.label_locs.at(i).format == Branch) {
+                        inst &= 0b00000001111111111111000001111111;
+                        inst |= ((offset >> 11) & 0b1) << 7;      // Add imm[11]
+                        inst |= ((offset >> 1) & 0b1111) << 8;    // Add imm[4:1]
+                        inst |= ((offset >> 5) & 0b111111) << 25; // Add imm[10:5]
+                        inst |= ((offset >> 12) & 0b1) << 31;     // Add imm[12]
+                    } else if (c.label_locs.at(i).format == J) {
+                        inst &= 0b00000000000000000000111111111111;
+                        inst |= ((offset >> 12) & 0b11111111) << 12;  // Add imm[19:12]
+                        inst |= ((offset >> 11) & 0b1) << 20;         // Add imm[11]
+                        inst |= ((offset >> 1) & 0b1111111111) << 21; // Add imm[10:1]
+                        inst |= ((offset >> 20) & 0b1) << 31;         // Add imm[20]
+                    } else if (c.label_locs.at(i).format == CJ) {
+                        inst &= 0b1110000000000011;
+                        inst |= ((offset >> 5) & 0b1) << 2;   // Add offset[5]
+                        inst |= ((offset >> 1) & 0b111) << 3; // Add offset[3:1]
+                        inst |= ((offset >> 7) & 0b1) << 6;   // Add offset[7]
+                        inst |= ((offset >> 6) & 0b1) << 7;   // Add offset[6]
+                        inst |= ((offset >> 10) & 0b1) << 8;  // Add offset[10]
+                        inst |= ((offset >> 8) & 0b11) << 9;  // Add offset[9:8]
+                        inst |= ((offset >> 4) & 0b1) << 11;  // Add offset[4]
+                        inst |= ((offset >> 11) & 0b1) << 12; // Add offset[11]
+                    } else if (c.label_locs.at(i).format == CB) {
+                        inst &= 0b1110001110000011;
+                        inst |= ((offset >> 5) & 0b1) << 2;   // Add offset[5]
+                        inst |= ((offset >> 1) & 0b11) << 3;  // Add offset[2:1]
+                        inst |= ((offset >> 6) & 0b11) << 5;  // Add offset[7:6]
+                        inst |= ((offset >> 3) & 0b11) << 10; // Add offset[4:3]
+                        inst |= ((offset >> 8) & 0b1) << 12;  // Add offset[8]
+                    }
+
+                    if (c.label_locs.at(i).i_bytes == 2) {
+                        reinterpret_cast<uint16_t&>(c.machine_code.data()[c.label_locs.at(i).loc]) = inst;
+                    } else if (c.label_locs.at(i).i_bytes == 4) {
+                        reinterpret_cast<uint32_t&>(c.machine_code.data()[c.label_locs.at(i).loc]) = inst;
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
+When we find a jump instruction that needs later TLC, we save its location and some other attributes to a special array. Then, after the rest of the code is done assembling, we go back through each jump instruction and calculate the correct offset and insert that offset in-place in the correct instruction format.
+
+This is faster than what some other assemblers do for instructions which jump to a location reachable within the constraints of the offset's size, but not useful for far jumps, which require a separate helper instruction to extend the jump.
+
 # More optimizations
 
 Here's a few more that aren't quite significant enough for their own sections but deserve a mention.

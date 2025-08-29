@@ -15,12 +15,11 @@
 
 html, body {
   background-color: #ecd3b3;
-  height: 100%;
   margin: 0;
 }
 
 body {
-  padding-bottom: 50%;
+  padding-bottom: 50vh;
 }
 
 a {
@@ -73,7 +72,7 @@ p, ul {
 
 h3 {
   font-family: 'Outfit';
-  font-size: 2em;
+  font-size: 1.8em;
 }
 
 h2 {
@@ -166,9 +165,17 @@ span.warning {
     font-size: 2.3em;
   }
 
+  h2 {
+    font-size: 1.8em;
+  }
+
+  h3 {
+    font-size: 1.4em;
+  }
+
   p, ul {
     margin-top: 20px;
-    font-size: 1.2em;
+    font-size: 1.1em;
   }
 
   ul {
@@ -176,7 +183,7 @@ span.warning {
   }
 
   pre {
-    font-size: 1.2em;
+    font-size: 1.1em;
     padding: 5px;
     width: 100%;
     left: 0;

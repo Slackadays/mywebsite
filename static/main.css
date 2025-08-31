@@ -16,6 +16,7 @@
 html, body {
   background-color: #e9f0ef;
   margin: 0;
+  overflow-wrap: break-word;
 }
 
 body {

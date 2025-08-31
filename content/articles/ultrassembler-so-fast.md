@@ -5,7 +5,11 @@ date = 2025-08-30
 
 [Ultrassembler](https://github.com/Slackadays/Chata/tree/main/ultrassembler) is a superfast and complete RISC-V assembler library that I'm writing as a component of the bigger [Chata signal processing](https://github.com/Slackadays/Chata) project. 
 
-<span class="inline-quote">"Why would you want to do this?"</span> you might ask. First, existing RISC-V assemblers that conform the the entirety of the specification, `as` and `llvm-mc`, ship as binaries that you run as standalone programs. This is normally not an issue. However, in Chata's case, it needs to access a RISC-V assembler from within its C++ code. The usual way to accomplish this task is to use some ugly C function like `system()` to run external software as if it were a human or script running a command in a terminal. 
+Assemblers take in a platform-dependent assembly language and output that platform's native machine code which runs directly on the processor.
+
+![Infographic showing the RISC-V assembly process for addi](/RISC-V-assembly-safe.svg)
+
+<span class="inline-quote">"Why would you want to do this?"</span> you might ask. First, existing RISC-V assemblers that conform the the entirety of the specification, `as` and `llvm-mc`, ship as binaries that you run as standalone programs. This is normally not an issue. However, in Chata's case, it needs to access a RISC-V assembler from within its C++ code. The alternative is to use some ugly C function like `system()` to run external software as if it were a human or script running a command in a terminal. 
 
 Here's an example of what I'm talking about:
 
@@ -26,7 +30,9 @@ int main() {
 }
 ```
 
-It gets even uglier once you realize you need temporary files and possibly have to artisanally craft the command beforehand. Additionally, invoking the assembler in this manner incurs a significant performance overhead on embedded systems which lack significant processing power. There must be a better way. Enter Ultrassembler.
+It gets even worse once you realize you need temporary files and possibly have to artisanally craft the command beforehand. Additionally, invoking the assembler in this manner incurs a significant performance overhead on embedded systems which lack significant processing power. There must be a better way. 
+
+Enter Ultrassembler.
 
 With these two goals of speed and standard conformance in mind, I wrote Ultrassembler as a completely standalone library with GNU `as` as the speed and standard conformity benchmark. 
 
@@ -36,7 +42,7 @@ After months of peformance optimization, Ultrassembler can assemble a test file 
 
 Such performance ensures a good user experience on the platforms where Chata runs, but also as a consequence of this lack of overhead, you could also combine Ultrassembler with fantastic libraries like [libriscv](https://github.com/libriscv/libriscv) to implement low-to-no-cost RISC-V scripting in things like games, or maybe even in your JIT programming language!
 
-Let's look at how exactly I made Ultrassembler this fast so you can reap the benefits too.
+Let's look at some of the ways I made Ultrassembler this fast so that you can reap the benefits too.
 
 <span class="warning">WARNING!</span> &nbsp; The code you're about to see here is only current as of this article's publishing. The actual code Ultrassembler uses could be different by the time you read this in the future!
 
@@ -941,6 +947,26 @@ struct assembly_context {
 We order them in descending memory size, from 32 bytes for `ultrastring` to 2 for `uint16_t`. This packs the members the most efficient way possible for memory usage.
 
 Also, these variables are not in the global scope or a namespace because holding them all in a struct enables multithreaded operation. It would be possible to add `thread_local` to each one to enable multithreading easily, but in testing, this added enormous overhead compared to a plain old struct.
+
+## Memory locality
+
+Memory locality is the general idea that the most frequently accessed memory should be close together. Ultrassembler has many such cases, and we already help ensure memory locality through preallocated memory pools. We go further by ensuring sections of code which frequently work on one area of memory get their own space to work with.
+
+Here's an example:
+
+```cpp
+void make_inst(assembly_context& c) {
+    // boilerplate
+
+    uint32_t inst = 0;
+
+    // code which modifies this inst variable
+
+    reinterpret_cast<uint32_t&>(c.machine_code[c.machine_code.size() - bytes]) = inst;
+}
+```
+
+We work on the local `inst` variable to prevent far reaches across memory to the `c.machine_code` vector. When we're done, we write to `c.machine_code` once and invoke only one far memory access as a result.
 
 # Conclusion
 

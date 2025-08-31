@@ -27,6 +27,8 @@ Check out one of my favorite bachata songs!
 
 # Contact
 
+**What you read here is only an itsy bitsy portion of who I am.**
+
 The fastest and easiest way to reach me is by email at: 
 
 **engineer [@t] ucf [d0t] edu**

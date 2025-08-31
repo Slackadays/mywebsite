@@ -14,7 +14,7 @@
 }
 
 html, body {
-  background-color: #ecd3b3;
+  background-color: #e9f0ef;
   margin: 0;
 }
 
@@ -34,7 +34,7 @@ div.header {
   font-family: 'Shadows Into Light';
   font-size: 2em;
   padding: 0.5em;
-  background-color: #f7d9b4;
+  background-color: #e3eae9;
   display: flex;
   justify-content: space-between;
 }
@@ -108,8 +108,8 @@ pre {
   padding: 10px;
   background-color: #101010 !important;
   overflow-x: auto;
-  width: 40vw;
-  left: calc(-20vw + 50%);
+  width: 38vw;
+  left: calc(-19vw + 50%);
   position: relative;
 }
 
@@ -128,6 +128,15 @@ span.warning {
   color: #ff0000;
   text-shadow: 0 0 20px #ff0000, 0 0 30px #ff0000;
   font-weight: bold;
+}
+
+span.inline-quote {
+  font-family: 'Shadows Into Light';
+}
+
+img {
+  width: 100%;
+  height: auto;
 }
 
 @media screen and (max-width: 990px) {

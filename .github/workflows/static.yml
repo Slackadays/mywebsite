@@ -39,6 +39,8 @@ jobs:
           tool: zola@0.17.2
       - name: Build content
         run: zola build
+      - name: Copy non-Zola content
+        run: cp -r blog/dpi blog/hotspot blog/modem blog/sfpplus legacy-main.css legacy-favicon.png public/
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
